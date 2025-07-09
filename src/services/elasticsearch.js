@@ -2,9 +2,33 @@ const { Client } = require('@elastic/elasticsearch');
 
 const esClient = new Client({
   node: process.env.ELASTIC_URL || 'http://localhost:9200',
-  apiVersion: '8.11', // ES 9.x ile uyumlu API versiyonu
+  apiVersion: '8.11',
 });
 const MESSAGE_INDEX = 'messages';
+
+// Index otomatik oluşturucu
+async function ensureMessageIndex() {
+  const exists = await esClient.indices.exists({ index: MESSAGE_INDEX });
+  if (!exists) {
+    await esClient.indices.create({
+      index: MESSAGE_INDEX,
+      body: {
+        mappings: {
+          properties: {
+            content: { type: 'text' },
+            sender: { type: 'keyword' },
+            receiver: { type: 'keyword' },
+            conversation: { type: 'keyword' },
+            createdAt: { type: 'date' },
+          },
+        },
+      },
+    });
+    console.log('[Elastic] messages index created');
+  } else {
+    console.log('[Elastic] messages index already exists');
+  }
+}
 
 async function indexMessage(message) {
   await esClient.index({
@@ -32,7 +56,7 @@ async function searchMessages(query) {
 
 module.exports = {
   esClient,
+  ensureMessageIndex,
   indexMessage,
   searchMessages,
-  MESSAGE_INDEX,
 };

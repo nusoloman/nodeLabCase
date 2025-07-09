@@ -21,6 +21,8 @@ const rabbitmqService = require('./services/rabbitmqService');
 require('./services/autoMessageScheduler');
 require('./services/autoMessageQueueCron');
 const errorHandler = require('./middlewares/errorHandler');
+const elasticsearchService = require('./services/elasticsearch');
+elasticsearchService.ensureMessageIndex();
 
 // --- Express App Setup ---
 const app = express();
