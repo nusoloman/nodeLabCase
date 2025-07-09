@@ -134,6 +134,7 @@ connectRabbitMQ();
 // --- Socket.IO Real-time Communication ---
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
+app.set('io', io);
 
 // Socket.IO authentication middleware
 io.use(async (socket, next) => {
@@ -159,17 +160,20 @@ const User = require('./models/User');
 io.on('connection', (socket) => {
   // Kullanıcı bir konuşma odasına katılır
   socket.on('join_room', async (conversationId) => {
-    console.log('join_room', conversationId, socket.id, socket.userId);
     socket.join(conversationId);
+
+    // Odadaki kullanıcı sayısını kontrol et
+    const roomSockets = await io.in(conversationId).fetchSockets();
+
     socket.to(conversationId).emit('user_online', { userId: socket.userId });
   });
 
   // Gerçek zamanlı mesaj gönderimi
   socket.on('send_message', async (data) => {
-    console.log('send_message', data, socket.id, socket.userId);
     const sender = socket.userId;
     const { receiver, content } = data;
     if (!receiver || !content) return;
+
     let conversation = await Conversation.findOne({
       participants: { $all: [sender, receiver], $size: 2 },
     });
@@ -178,20 +182,50 @@ io.on('connection', (socket) => {
         participants: [sender, receiver],
       });
     }
+
     const message = await Message.create({
       sender,
       receiver,
       content,
       conversation: conversation._id,
     });
-    io.to(conversation._id.toString()).emit('message_received', {
+
+    // Sender bilgisini al
+    const senderUser = await User.findById(sender).select('username email');
+
+    // Odadaki tüm kullanıcıları kontrol et
+    const roomSockets = await io.in(conversation._id.toString()).fetchSockets();
+
+    const messageData = {
       _id: message._id,
-      sender,
+      sender: {
+        _id: sender,
+        username: senderUser?.username,
+        email: senderUser?.email,
+      },
       receiver,
       content,
       conversation: conversation._id,
       createdAt: message.createdAt,
-    });
+    };
+
+    // Odadaki kullanıcılara gönder
+    io.to(conversation._id.toString()).emit('message_received', messageData);
+
+    // Eğer alıcı odada değilse, direkt alıcıya da gönder
+    const receiverInRoom = roomSockets.some(
+      (socket) => socket.userId === receiver
+    );
+    if (!receiverInRoom) {
+      // Alıcının tüm socket'lerine gönder
+      const allSockets = await io.fetchSockets();
+      const receiverSockets = allSockets.filter(
+        (socket) => socket.userId === receiver
+      );
+      receiverSockets.forEach((socket) => {
+        socket.emit('message_received', messageData);
+      });
+    }
   });
 
   // Tiping (yazıyor) bildirimi
@@ -200,6 +234,46 @@ io.on('connection', (socket) => {
       socket.to(data.conversationId).emit('typing', {
         userId: socket.userId,
         isTyping: data.isTyping,
+      });
+    }
+  });
+
+  // Mesajı delivered olarak işaretle
+  socket.on('mark_delivered', async (data) => {
+    const { messageId } = data;
+    if (!messageId) return;
+
+    const message = await Message.findByIdAndUpdate(
+      messageId,
+      { delivered: true, deliveredAt: new Date() },
+      { new: true }
+    );
+
+    if (message) {
+      io.to(message.conversation.toString()).emit('message_delivered', {
+        messageId: message._id,
+        conversationId: message.conversation,
+        deliveredAt: message.deliveredAt,
+      });
+    }
+  });
+
+  // Mesajı seen olarak işaretle
+  socket.on('mark_seen', async (data) => {
+    const { messageId } = data;
+    if (!messageId) return;
+
+    const message = await Message.findByIdAndUpdate(
+      messageId,
+      { seen: true, seenAt: new Date() },
+      { new: true }
+    );
+
+    if (message) {
+      io.to(message.conversation.toString()).emit('message_seen', {
+        messageId: message._id,
+        conversationId: message.conversation,
+        seenAt: message.seenAt,
       });
     }
   });

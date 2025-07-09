@@ -4,7 +4,7 @@ import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
 import { useSocket } from '../../contexts/SocketContext';
 import { useMessageHistory } from '../../hooks/useMessageHistory';
-import { sendMessage } from '../../api';
+import { sendMessage, markMessageDelivered, markMessageSeen } from '../../api';
 
 interface Message {
   _id?: string;
@@ -12,6 +12,9 @@ interface Message {
   senderName?: string;
   content: string;
   createdAt?: string;
+  delivered?: boolean;
+  seen?: boolean;
+  conversation?: string | { _id: string }; // Added conversation property
 }
 
 interface ChatWindowProps {
@@ -32,7 +35,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   onNewConversation,
 }) => {
   const { socket } = useSocket();
-  const { messages, loading, error, addMessage } =
+  const { messages, loading, error, addMessage, updateMessage } =
     useMessageHistory(conversationId);
   const [isOtherTyping, setIsOtherTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -50,9 +53,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   useEffect(() => {
     if (!socket) return;
     const handleMessage = (msg: Message) => {
-      addMessage(msg);
-      if (onNewMessage && conversationId && msg.content) {
-        onNewMessage(conversationId, msg.content);
+      // Mesajın bu conversation'a ait olup olmadığını kontrol et
+      const msgConversationId =
+        typeof msg.conversation === 'string'
+          ? msg.conversation
+          : msg.conversation?._id;
+
+      if (msgConversationId === conversationId) {
+        addMessage(msg);
+        if (onNewMessage && conversationId && msg.content) {
+          onNewMessage(conversationId, msg.content);
+        }
       }
     };
     socket.on('message_received', handleMessage);
@@ -60,6 +71,42 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       socket.off('message_received', handleMessage);
     };
   }, [socket, conversationId, addMessage, onNewMessage]);
+
+  // Message status events'lerini dinle
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleMessageDelivered = (data: {
+      messageId: string;
+      conversationId: string;
+      deliveredAt: string;
+    }) => {
+      if (data.conversationId === conversationId) {
+        updateMessage(data.messageId, {
+          delivered: true,
+          deliveredAt: data.deliveredAt,
+        });
+      }
+    };
+
+    const handleMessageSeen = (data: {
+      messageId: string;
+      conversationId: string;
+      seenAt: string;
+    }) => {
+      if (data.conversationId === conversationId) {
+        updateMessage(data.messageId, { seen: true, seenAt: data.seenAt });
+      }
+    };
+
+    socket.on('message_delivered', handleMessageDelivered);
+    socket.on('message_seen', handleMessageSeen);
+
+    return () => {
+      socket.off('message_delivered', handleMessageDelivered);
+      socket.off('message_seen', handleMessageSeen);
+    };
+  }, [socket, conversationId, updateMessage]);
 
   // Typing eventini dinle
   useEffect(() => {
@@ -75,6 +122,22 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       socket.off('typing', handleTyping);
     };
   }, [socket, conversationId, otherUser._id]);
+
+  // Konuşmaya girildiğinde okunmamış mesajları seen olarak işaretle
+  useEffect(() => {
+    if (!socket || !conversationId || !messages.length) return;
+
+    // Konuşmaya ilk girildiğinde tüm okunmamış mesajları seen olarak işaretle
+    const unreadMessages = messages.filter((msg) => {
+      const senderId =
+        typeof msg.sender === 'string' ? msg.sender : msg.sender?._id;
+      return senderId !== currentUserId && !msg.seen;
+    });
+
+    unreadMessages.forEach((msg) => {
+      socket.emit('mark_seen', { messageId: msg._id });
+    });
+  }, [socket, conversationId, messages, currentUserId]);
 
   // Scroll to bottom
   useEffect(() => {
@@ -123,6 +186,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     return () =>
       window.removeEventListener('focusMessage', handler as EventListener);
   }, [messages]);
+
+  // Otomatik delivered işaretlemeyi kaldırdık - sadece toast gösterildiğinde olacak
 
   // Typing eventini emit et
   const handleTyping = (isTyping: boolean) => {
@@ -197,18 +262,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                   senderName={
                     isOwn
                       ? undefined
-                      : (typeof msg.sender === 'object' &&
-                          msg.sender.username) ||
-                        otherUser.username
+                      : typeof msg.sender === 'object' && msg.sender.username
                   }
                   time={
-                    msg.createdAt
-                      ? new Date(msg.createdAt).toLocaleTimeString('tr-TR', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })
-                      : undefined
+                    msg.createdAt &&
+                    new Date(msg.createdAt).toLocaleTimeString('tr-TR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
                   }
+                  delivered={msg.delivered}
+                  seen={msg.seen}
                 />
               </div>
             );

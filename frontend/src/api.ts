@@ -92,4 +92,19 @@ export async function updateProfile(username: string, email: string) {
   });
 }
 
+// Mesajı delivered olarak işaretle
+export async function markMessageDelivered(messageId: string) {
+  return apiRequest<{ message: any }>(`/message/${messageId}/delivered`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+// Mesajı seen olarak işaretle
+export async function markMessageSeen(messageId: string) {
+  return apiRequest<{ message: any }>(`/message/${messageId}/seen`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
 // Add more endpoints as needed...

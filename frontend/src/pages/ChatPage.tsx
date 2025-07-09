@@ -8,7 +8,7 @@ import { Clock, Search } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useConversations } from '../hooks/useConversations';
 import { useGlobalState } from '../contexts/GlobalStateContext';
-import { getConversationList } from '../api';
+import { useSocket } from '../contexts/SocketContext';
 
 // Tip tanımları
 interface User {
@@ -22,7 +22,13 @@ interface User {
 interface Conversation {
   _id: string;
   participants: User[];
-  // Diğer conversation alanları gerekiyorsa ekle
+  lastMessage?: {
+    content: string;
+    sender: string;
+    receiver: string;
+    seen: boolean;
+    createdAt: string;
+  };
 }
 
 interface Message {
@@ -46,73 +52,63 @@ const ChatPage: React.FC = () => {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const focusMessageId = params.get('focusMessageId');
-  const { setActiveConversation } = useGlobalState(); // activeConversation kullanılmıyor, kaldırıldı
+  const { setActiveConversation, setActiveConversationId } = useGlobalState();
   const [conversationsState, setConversationsState] = useState<Conversation[]>(
     []
   );
-
-  // Son mesajlar için state
-  const [lastMessages, setLastMessages] = useState<Record<string, string>>({});
 
   // Sync conversationsState with useConversations
   useEffect(() => {
     setConversationsState(conversations as Conversation[]);
   }, [conversations]);
 
-  // Fetch last message for each conversation
-  useEffect(() => {
-    let isMounted = true;
-    async function fetchLastMessages() {
-      if (!conversations.length) {
-        setLastMessages({});
-        return;
-      }
-      const accessToken = localStorage.getItem('accessToken');
-      const promises = (conversations as Conversation[]).map(async (conv) => {
-        const res = await fetch(`/api/message/history/${conv._id}`, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const msgs: Message[] = data.messages || [];
-          if (msgs.length > 0) {
-            const lastMsg = msgs[msgs.length - 1];
-            return { id: conv._id, text: lastMsg.content };
-          }
-        }
-        return { id: conv._id, text: '' };
-      });
-      const results = await Promise.all(promises);
-      if (!isMounted) return;
-      const msgMap: Record<string, string> = {};
-      results.forEach((r) => {
-        if (r) msgMap[r.id] = r.text;
-      });
-      setLastMessages(msgMap);
-    }
-    fetchLastMessages();
-    return () => {
-      isMounted = false;
-    };
-  }, [conversations]);
-
   // handleNewMessage fonksiyonunu useCallback ile sarmala
-  const handleNewMessage = useCallback((convId: string, msg: string) => {
-    setLastMessages((prev) => ({ ...prev, [convId]: msg }));
-  }, []);
+  const handleNewMessage = useCallback(
+    (convId: string, msg: string) => {
+      // Konuşma listesini güncelle
+      setConversationsState((prev) =>
+        prev.map((conv) =>
+          conv._id === convId
+            ? {
+                ...conv,
+                lastMessage: {
+                  content: msg,
+                  sender: user?._id || '',
+                  receiver:
+                    conv.participants.find((p) => p._id !== user?._id)?._id ||
+                    '',
+                  seen: false,
+                  createdAt: new Date().toISOString(),
+                },
+              }
+            : conv
+        )
+      );
+    },
+    [user?._id]
+  );
 
   // handleNewConversation fonksiyonunu useCallback ile sarmala
   const handleNewConversation = useCallback(
     async (newConvId: string, message: Message) => {
       setConversationId(newConvId);
-      const updatedList = await getConversationList();
-      setConversationsState(updatedList.conversations as Conversation[]);
-      setLastMessages((prev) => ({ ...prev, [newConvId]: message.content }));
+
+      // Yeni konuşmayı listeye ekle
+      const newConversation: Conversation = {
+        _id: newConvId,
+        participants: selectedUser ? [selectedUser, user!] : [],
+        lastMessage: {
+          content: message.content,
+          sender: user?._id || '',
+          receiver: selectedUser?._id || '',
+          seen: false,
+          createdAt: new Date().toISOString(),
+        },
+      };
+
+      setConversationsState((prev) => [newConversation, ...prev]);
     },
-    []
+    [selectedUser, user]
   );
 
   // handleConversationSelect fonksiyonunu useCallback ile sarmala
@@ -167,16 +163,36 @@ const ChatPage: React.FC = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const urlConvId = urlParams.get('conversationId');
+    console.log('URL changed:', {
+      urlConvId,
+      currentConversationId: conversationId,
+      conversationsStateLength: conversationsState.length,
+      conversationsLength: conversations.length,
+    });
+
     if (urlConvId && urlConvId !== conversationId) {
       setConversationId(urlConvId);
-      const conv = (conversations as Conversation[]).find(
+
+      // Önce conversationsState'te ara, yoksa conversations'ta ara
+      let conv = conversationsState.find(
         (c: Conversation) => c._id === urlConvId
       );
+
+      if (!conv) {
+        conv = (conversations as Conversation[]).find(
+          (c: Conversation) => c._id === urlConvId
+        );
+      }
+
+      console.log('Found conversation:', conv);
+
       if (conv && user) {
         setActiveConversation(conv as Conversation);
         const participant = conv.participants.find(
           (p: User) => p._id !== user._id
         );
+        console.log('Found participant:', participant);
+
         if (participant) {
           setSelectedUser({
             _id: participant._id,
@@ -192,7 +208,149 @@ const ChatPage: React.FC = () => {
         }
       }
     }
-  }, [location.search, conversations, user]);
+  }, [
+    location.search,
+    conversationsState,
+    conversations,
+    user,
+    conversationId,
+  ]);
+
+  // Konuşmalar yüklendiğinde URL'deki conversationId'yi kontrol et
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const urlConvId = urlParams.get('conversationId');
+
+    if (
+      urlConvId &&
+      !selectedUser &&
+      (conversationsState.length > 0 || conversations.length > 0)
+    ) {
+      console.log('Checking for conversation after load:', urlConvId);
+
+      let conv = conversationsState.find(
+        (c: Conversation) => c._id === urlConvId
+      );
+
+      if (!conv) {
+        conv = (conversations as Conversation[]).find(
+          (c: Conversation) => c._id === urlConvId
+        );
+      }
+
+      console.log('Found conversation after load:', conv);
+
+      if (conv && user) {
+        setConversationId(urlConvId);
+        setActiveConversation(conv as Conversation);
+        const participant = conv.participants.find(
+          (p: User) => p._id !== user._id
+        );
+        console.log('Found participant after load:', participant);
+
+        if (participant) {
+          setSelectedUser({
+            _id: participant._id,
+            username: participant.username || '',
+            email: participant.email || '',
+          });
+        } else {
+          setSelectedUser({
+            _id: conv._id,
+            username: 'Kullanıcı',
+            email: '',
+          });
+        }
+      }
+    }
+  }, [conversationsState, conversations, user, selectedUser]);
+
+  // conversationId değiştiğinde global state'i güncelle
+  useEffect(() => {
+    setActiveConversationId(conversationId);
+  }, [conversationId, setActiveConversationId]);
+
+  const { socket } = useSocket();
+
+  // WebSocket ile gerçek zamanlı konuşma listesi güncelleme
+  useEffect(() => {
+    if (!socket || !user) return;
+
+    const handleMessageReceived = (msg: {
+      conversation: string | { _id: string };
+      content: string;
+      sender: string | { _id: string };
+      receiver: string;
+      createdAt: string;
+    }) => {
+      const msgConversationId =
+        typeof msg.conversation === 'string'
+          ? msg.conversation
+          : msg.conversation?._id;
+
+      // Konuşma listesini güncelle
+      setConversationsState((prev) =>
+        prev.map((conv) =>
+          conv._id === msgConversationId
+            ? {
+                ...conv,
+                lastMessage: {
+                  content: msg.content,
+                  sender:
+                    typeof msg.sender === 'object'
+                      ? msg.sender._id
+                      : msg.sender,
+                  receiver: msg.receiver,
+                  seen: false, // Yeni gelen mesaj okunmamış
+                  createdAt: msg.createdAt,
+                },
+              }
+            : conv
+        )
+      );
+    };
+
+    const handleMessageSeen = (data: {
+      messageId: string;
+      conversationId: string;
+      seenAt: string;
+    }) => {
+      // Mesaj okunduğunda konuşma listesini güncelle
+      setConversationsState((prev) =>
+        prev.map((conv) =>
+          conv._id === data.conversationId
+            ? {
+                ...conv,
+                lastMessage: conv.lastMessage
+                  ? {
+                      ...conv.lastMessage,
+                      seen: true,
+                    }
+                  : conv.lastMessage,
+              }
+            : conv
+        )
+      );
+    };
+
+    socket.on('message_received', handleMessageReceived);
+    socket.on('message_seen', handleMessageSeen);
+
+    return () => {
+      socket.off('message_received', handleMessageReceived);
+      socket.off('message_seen', handleMessageSeen);
+    };
+  }, [socket, user]);
+
+  // Artık AuthContext'te yapıldığı için bu kısmı kaldırdık
+  // useEffect(() => {
+  //   if (connected && socket && conversations.length > 0) {
+  //     console.log('Joining all conversations:', conversations.length);
+  //     conversations.forEach((conv: Conversation) => {
+  //       joinConversation(conv._id);
+  //     });
+  //   }
+  // }, [connected, socket, conversations, joinConversation]);
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-row">
@@ -217,58 +375,97 @@ const ChatPage: React.FC = () => {
           ) : conversationsState.length === 0 ? (
             <div className="text-gray-400 text-sm">Henüz konuşma yok.</div>
           ) : (
-            conversationsState.map((conv) => {
-              const participant = conv.participants.find(
-                (p: User) => p._id !== user?._id
-              );
-              const username = participant ? participant.username : 'Kullanıcı';
-              const avatarUrl =
-                participant && participant.avatarUrl
-                  ? participant.avatarUrl
-                  : undefined;
-              const lastMsg = lastMessages[conv._id] || '';
-              return (
-                <button
-                  key={conv._id}
-                  className={`w-full flex items-center gap-3 text-left px-3 py-2 rounded-lg transition-colors ${
-                    conv._id === conversationId
-                      ? 'bg-purple-700 text-white'
-                      : 'bg-gray-800 hover:bg-gray-700 text-gray-200'
-                  }`}
-                  onClick={() => handleConversationSelect(conv)}
-                >
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt={username}
-                      className="w-10 h-10 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-500 rounded-full flex items-center justify-center text-white">
-                      <svg
-                        width="20"
-                        height="20"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          fill="currentColor"
-                          d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5Zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5Z"
-                        />
-                      </svg>
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold truncate">{username}</div>
-                    {lastMsg && (
-                      <div className="text-xs text-gray-400 truncate max-w-[140px]">
-                        {lastMsg}
+            // Unread (okunmamış) konuşmaları en üste al
+            [...conversationsState]
+              .sort((a, b) => {
+                // Okunmamış mesajları en üste al
+                const aUnread =
+                  a.lastMessage &&
+                  !a.lastMessage.seen &&
+                  a.lastMessage.receiver === user?._id;
+                const bUnread =
+                  b.lastMessage &&
+                  !b.lastMessage.seen &&
+                  b.lastMessage.receiver === user?._id;
+
+                if (aUnread && !bUnread) return -1;
+                if (!aUnread && bUnread) return 1;
+                return 0;
+              })
+              .map((conv) => {
+                const participant = conv.participants.find(
+                  (p: User) => p._id !== user?._id
+                );
+                const username = participant
+                  ? participant.username
+                  : 'Kullanıcı';
+                const avatarUrl =
+                  participant && participant.avatarUrl
+                    ? participant.avatarUrl
+                    : undefined;
+                const lastMsg = conv.lastMessage?.content || '';
+                const isUnread =
+                  conv.lastMessage &&
+                  !conv.lastMessage.seen &&
+                  conv.lastMessage.receiver === user?._id;
+
+                return (
+                  <button
+                    key={conv._id}
+                    className={`w-full flex items-center gap-3 text-left px-3 py-2 rounded-lg transition-colors border-2 ${
+                      conv._id === conversationId
+                        ? 'bg-purple-700 text-white border-purple-700'
+                        : isUnread
+                        ? 'bg-blue-900 text-white border-blue-400'
+                        : 'bg-gray-800 hover:bg-gray-700 text-gray-200 border-transparent'
+                    }`}
+                    onClick={() => handleConversationSelect(conv)}
+                  >
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={username}
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-500 rounded-full flex items-center justify-center text-white">
+                        <svg
+                          width="20"
+                          height="20"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            fill="currentColor"
+                            d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5Zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5Z"
+                          />
+                        </svg>
                       </div>
                     )}
-                  </div>
-                </button>
-              );
-            })
+                    <div className="flex-1 min-w-0">
+                      <div
+                        className={`font-semibold truncate ${
+                          isUnread ? 'text-blue-200' : ''
+                        }`}
+                      >
+                        {username}
+                        {isUnread && (
+                          <span className="ml-2 inline-block w-2 h-2 bg-blue-400 rounded-full"></span>
+                        )}
+                      </div>
+                      {lastMsg && (
+                        <div
+                          className={`text-xs truncate max-w-[140px] ${
+                            isUnread ? 'text-blue-300' : 'text-gray-400'
+                          }`}
+                        >
+                          {lastMsg}
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })
           )}
         </div>
       </div>

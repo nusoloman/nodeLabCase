@@ -123,5 +123,13 @@ router.get(
   authMiddleware,
   messageController.history
 );
+// Mesajı iletildi (delivered) olarak işaretle
+router.patch(
+  '/:messageId/delivered',
+  authMiddleware,
+  messageController.markAsDelivered
+);
+// Mesajı okundu (seen) olarak işaretle
+router.patch('/:messageId/seen', authMiddleware, messageController.markAsSeen);
 
 module.exports = router;

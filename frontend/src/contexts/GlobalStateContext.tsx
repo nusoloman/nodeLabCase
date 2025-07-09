@@ -17,7 +17,9 @@ interface GlobalStateContextType {
   onlineUsers: User[];
   setOnlineUsers: (users: User[]) => void;
   activeConversation: Conversation | null;
-  setActiveConversation: (conv: Conversation | null) => void;
+  setActiveConversation: (conversation: Conversation | null) => void;
+  activeConversationId: string | null;
+  setActiveConversationId: (id: string | null) => void;
 }
 
 const GlobalStateContext = createContext<GlobalStateContextType | undefined>(
@@ -28,6 +30,9 @@ export const GlobalStateProvider = ({ children }: { children: ReactNode }) => {
   const [onlineUsers, setOnlineUsers] = useState<User[]>([]);
   const [activeConversation, setActiveConversation] =
     useState<Conversation | null>(null);
+  const [activeConversationId, setActiveConversationId] = useState<
+    string | null
+  >(null);
 
   return (
     <GlobalStateContext.Provider
@@ -36,6 +41,8 @@ export const GlobalStateProvider = ({ children }: { children: ReactNode }) => {
         setOnlineUsers,
         activeConversation,
         setActiveConversation,
+        activeConversationId,
+        setActiveConversationId,
       }}
     >
       {children}

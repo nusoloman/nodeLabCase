@@ -79,8 +79,72 @@ async function autoSend(req, res) {
   }
 }
 
+// Mesajı iletildi (delivered) olarak işaretle
+async function markAsDelivered(req, res) {
+  try {
+    const { messageId } = req.params;
+    const message = await Message.findByIdAndUpdate(
+      messageId,
+      { delivered: true, deliveredAt: new Date() },
+      { new: true }
+    );
+    if (!message) return res.status(404).json({ message: 'Message not found' });
+
+    // Socket.IO ile ilgili conversation odasına event emit et
+    if (req.app && req.app.get('io')) {
+      req.app
+        .get('io')
+        .to(message.conversation.toString())
+        .emit('message_delivered', {
+          messageId: message._id,
+          conversationId: message.conversation,
+          deliveredAt: message.deliveredAt,
+        });
+    }
+
+    res.json({ message });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ message: 'Failed to mark as delivered', error: err.message });
+  }
+}
+
+// Mesajı okundu (seen) olarak işaretle
+async function markAsSeen(req, res) {
+  try {
+    const { messageId } = req.params;
+    const message = await Message.findByIdAndUpdate(
+      messageId,
+      { seen: true, seenAt: new Date() },
+      { new: true }
+    );
+    if (!message) return res.status(404).json({ message: 'Message not found' });
+
+    // Socket.IO ile ilgili conversation odasına event emit et
+    if (req.app && req.app.get('io')) {
+      req.app
+        .get('io')
+        .to(message.conversation.toString())
+        .emit('message_seen', {
+          messageId: message._id,
+          conversationId: message.conversation,
+          seenAt: message.seenAt,
+        });
+    }
+
+    res.json({ message });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ message: 'Failed to mark as seen', error: err.message });
+  }
+}
+
 module.exports = {
   send,
   history,
   autoSend,
+  markAsDelivered,
+  markAsSeen,
 };

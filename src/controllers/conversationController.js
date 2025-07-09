@@ -1,5 +1,6 @@
 const Conversation = require('../models/Conversation');
 const User = require('../models/User');
+const Message = require('../models/Message');
 
 module.exports = {
   list: async (req, res) => {
@@ -8,7 +9,30 @@ module.exports = {
       const conversations = await Conversation.find({ participants: userId })
         .populate('participants', 'username email')
         .sort({ createdAt: -1 });
-      res.json({ conversations });
+
+      // Her konuşma için son mesajı ve seen durumunu al
+      const conversationsWithLastMessage = await Promise.all(
+        conversations.map(async (conv) => {
+          const lastMessage = await Message.findOne({ conversation: conv._id })
+            .sort({ createdAt: -1 })
+            .select('content sender receiver seen createdAt');
+
+          return {
+            ...conv.toObject(),
+            lastMessage: lastMessage
+              ? {
+                  content: lastMessage.content,
+                  sender: lastMessage.sender,
+                  receiver: lastMessage.receiver,
+                  seen: lastMessage.seen,
+                  createdAt: lastMessage.createdAt,
+                }
+              : null,
+          };
+        })
+      );
+
+      res.json({ conversations: conversationsWithLastMessage });
     } catch (err) {
       res
         .status(500)

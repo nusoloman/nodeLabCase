@@ -35,5 +35,12 @@ export function useMessageHistory(conversationId: string | null) {
     });
   }, []);
 
-  return { messages, loading, error, addMessage };
+  // Mesajı güncelle (ör. seen, delivered)
+  const updateMessage = useCallback((id: string, updates: Partial<any>) => {
+    setMessages((prev) =>
+      prev.map((msg) => (msg._id === id ? { ...msg, ...updates } : msg))
+    );
+  }, []);
+
+  return { messages, loading, error, addMessage, updateMessage };
 }

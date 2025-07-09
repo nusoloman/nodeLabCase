@@ -15,6 +15,11 @@ const messageSchema = new mongoose.Schema({
     required: true,
   },
   createdAt: { type: Date, default: Date.now },
+  // Yeni eklenen alanlar:
+  delivered: { type: Boolean, default: false }, // karşıya iletildi mi (tek tik)
+  deliveredAt: { type: Date }, // iletildiği zaman
+  seen: { type: Boolean, default: false }, // okundu mu (çift tik ve mavi)
+  seenAt: { type: Date }, // okunduğu zaman
 });
 
 messageSchema.index({ createdAt: 1 });

@@ -9,11 +9,47 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+interface Conversation {
+  _id: string;
+  participants: User[];
+}
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const { socket } = useSocket();
+  const { socket, connected, joinConversation } = useSocket();
+
+  // Kullanıcı login olduğunda konuşmaları yükle ve tüm odalara katıl
+  useEffect(() => {
+    if (user && connected && socket) {
+      loadConversationsAndJoinRooms();
+    }
+  }, [user, connected, socket]);
+
+  const loadConversationsAndJoinRooms = async () => {
+    try {
+      const accessToken = localStorage.getItem('accessToken');
+      const response = await fetch(`${API_URL}/conversation/list`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const conversations: Conversation[] = data.conversations || [];
+
+        // Tüm konuşma odalarına katıl
+        conversations.forEach((conv) => {
+          joinConversation(conv._id);
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load conversations:', error);
+    }
+  };
 
   const checkAuth = async (): Promise<boolean> => {
     const accessToken = localStorage.getItem('accessToken');

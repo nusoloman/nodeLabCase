@@ -1,11 +1,13 @@
 import React from 'react';
-import { User } from 'lucide-react';
+import { User, Check, CheckCheck } from 'lucide-react';
 
 interface MessageBubbleProps {
   message: string;
   isOwn: boolean;
   senderName?: string;
   time?: string;
+  delivered?: boolean;
+  seen?: boolean;
 }
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({
@@ -13,6 +15,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   isOwn,
   senderName,
   time,
+  delivered,
+  seen,
 }) => {
   return (
     <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-2`}>
@@ -35,9 +39,28 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
         }`}
       >
         {message}
-        {time && (
-          <div className="text-xs text-gray-400 mt-1 text-right">{time}</div>
-        )}
+        <div className="flex items-center justify-end mt-1 gap-1">
+          {time && (
+            <span className="text-xs text-gray-400 text-right">{time}</span>
+          )}
+          {isOwn && (
+            <span className="ml-1">
+              {/* Tik ikonları: delivered/seens */}
+              {!delivered && !seen && (
+                <Check className="w-4 h-4 text-gray-300 inline" />
+              )}
+              {delivered && !seen && (
+                <CheckCheck className="w-4 h-4 text-gray-300 inline" />
+              )}
+              {seen && (
+                <CheckCheck
+                  className="w-4 h-4 inline"
+                  style={{ color: '#4fc3f7' }}
+                />
+              )}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
