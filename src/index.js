@@ -141,6 +141,8 @@ io.use(async (socket, next) => {
     const payload = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
     socket.userId = payload.userId;
     await onlineUserService.addOnlineUser(socket.userId);
+    // Broadcast online user update
+    io.emit('online_users_updated');
     next();
   } catch (err) {
     next(new Error('Invalid token'));
@@ -204,6 +206,8 @@ io.on('connection', (socket) => {
   socket.on('disconnect', async () => {
     if (socket.userId) {
       await onlineUserService.removeOnlineUser(socket.userId);
+      // Broadcast online user update
+      io.emit('online_users_updated');
     }
   });
 });

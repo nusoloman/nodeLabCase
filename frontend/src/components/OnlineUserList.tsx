@@ -10,7 +10,7 @@ interface OnlineUser {
 }
 
 const OnlineUserList: React.FC = () => {
-  const { socket, connected } = useSocket();
+  const { socket } = useSocket();
   const [users, setUsers] = useState<OnlineUser[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -41,7 +41,6 @@ const OnlineUserList: React.FC = () => {
   useEffect(() => {
     if (!socket) return;
     const handleOnlineUpdate = () => {
-      // Her event'te tekrar fetch et
       fetch(`${API_URL}/online-users`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
@@ -49,15 +48,27 @@ const OnlineUserList: React.FC = () => {
         },
       })
         .then((res) => res.json())
-        .then((data) => setUsers(data.users || data));
+        .then((data) => {
+          console.log('Online user list:', data.users || data);
+          setUsers(data.users || data);
+        });
+    };
+    const handleConnect = () => {
+      console.log('Socket connect event: Online user list fetch');
+      handleOnlineUpdate();
     };
     socket.on('user_online', handleOnlineUpdate);
     socket.on('disconnect', handleOnlineUpdate);
-    socket.on('connect', handleOnlineUpdate);
+    socket.on('connect', handleConnect);
+    socket.on('online_users_updated', () => {
+      console.log('online_users_updated event geldi');
+      setTimeout(handleOnlineUpdate, 300);
+    });
     return () => {
       socket.off('user_online', handleOnlineUpdate);
       socket.off('disconnect', handleOnlineUpdate);
-      socket.off('connect', handleOnlineUpdate);
+      socket.off('connect', handleConnect);
+      socket.off('online_users_updated', handleOnlineUpdate);
     };
   }, [socket]);
 

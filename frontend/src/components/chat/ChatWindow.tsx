@@ -17,16 +17,19 @@ interface ChatWindowProps {
   conversationId: string | null;
   currentUserId: string;
   otherUser: { _id: string; username: string; avatarUrl?: string };
+  onNewMessage?: (conversationId: string, message: string) => void;
 }
 
 const ChatWindow: React.FC<ChatWindowProps> = ({
   conversationId,
   currentUserId,
   otherUser,
+  onNewMessage,
 }) => {
   const { socket } = useSocket();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isOtherTyping, setIsOtherTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Odaya katıl ve geçmiş mesajları çek (sadece conversationId varsa)
@@ -58,17 +61,41 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     if (!socket) return;
     const handleMessage = (msg: Message) => {
       setMessages((prev) => [...prev, msg]);
+      if (conversationId && onNewMessage && msg.content) {
+        onNewMessage(conversationId, msg.content);
+      }
     };
     socket.on('message_received', handleMessage);
     return () => {
       socket.off('message_received', handleMessage);
     };
-  }, [socket]);
+  }, [socket, conversationId, onNewMessage]);
+
+  // Typing eventini dinle
+  useEffect(() => {
+    if (!socket || !conversationId) return;
+    const handleTyping = (data: { userId: string; isTyping: boolean }) => {
+      // Sadece karşı kullanıcı typing ise göster
+      if (data.userId === otherUser._id) {
+        setIsOtherTyping(data.isTyping);
+      }
+    };
+    socket.on('typing', handleTyping);
+    return () => {
+      socket.off('typing', handleTyping);
+    };
+  }, [socket, conversationId, otherUser._id]);
 
   // Scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Typing eventini emit et
+  const handleTyping = (isTyping: boolean) => {
+    if (!socket || !conversationId) return;
+    socket.emit('typing', { conversationId, isTyping });
+  };
 
   const handleSend = (text: string) => {
     if (!socket) return;
@@ -78,6 +105,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     };
     socket.emit('send_message', msg);
     // setMessages ile hemen ekleme YOK, sadece event ile eklenecek
+    if (conversationId && onNewMessage) {
+      onNewMessage(conversationId, text);
+    }
   };
 
   return (
@@ -85,7 +115,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       <ChatHeader
         title={otherUser.username}
         avatarUrl={otherUser.avatarUrl}
-        subtitle="Sohbet aktif"
+        subtitle={isOtherTyping ? 'Yazıyor...' : 'Sohbet aktif'}
       />
       <div className="flex-1 overflow-y-auto px-4 py-6 bg-gray-900">
         {loading ? (
@@ -126,7 +156,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         )}
         <div ref={messagesEndRef} />
       </div>
-      <ChatInput onSend={handleSend} />
+      <ChatInput onSend={handleSend} onTyping={handleTyping} />
     </div>
   );
 };

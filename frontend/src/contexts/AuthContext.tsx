@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../config';
 import { AuthContext, type User } from './AuthContextDef';
+import { useSocket } from './SocketContext';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -12,6 +13,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { socket } = useSocket();
 
   const checkAuth = async (): Promise<boolean> => {
     const accessToken = localStorage.getItem('accessToken');
@@ -116,6 +118,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.error('Logout request failed:', error);
       }
     }
+
+    // Socket bağlantısını kapat
+    if (socket) socket.disconnect();
 
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
