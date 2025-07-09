@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useSocket } from '../contexts/SocketContext';
 import { API_URL } from '../config';
 import { User, Circle } from 'lucide-react';
@@ -9,59 +9,48 @@ interface OnlineUser {
   email: string;
 }
 
-const OnlineUserList: React.FC = () => {
+const OnlineUserList: React.FC = React.memo(() => {
   const { socket } = useSocket();
   const [users, setUsers] = useState<OnlineUser[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // İlk yüklemede online kullanıcıları çek
-  useEffect(() => {
-    const fetchOnlineUsers = async () => {
-      setLoading(true);
-      try {
-        const accessToken = localStorage.getItem('accessToken');
-        const res = await fetch(`${API_URL}/online-users`, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        const data = await res.json();
-        setUsers(data.users || data);
-      } catch {
-        setUsers([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchOnlineUsers();
+  // fetchOnlineUsers fonksiyonunu useCallback ile sarmala
+  const fetchOnlineUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const accessToken = localStorage.getItem('accessToken');
+      const res = await fetch(`${API_URL}/online-users`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      const data = await res.json();
+      setUsers(data.users || data);
+    } catch {
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchOnlineUsers();
+  }, [fetchOnlineUsers]);
 
   // Socket.IO ile online kullanıcılar güncellendiğinde listeyi güncelle
   useEffect(() => {
     if (!socket) return;
     const handleOnlineUpdate = () => {
-      fetch(`${API_URL}/online-users`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
-          'Content-Type': 'application/json',
-        },
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          console.log('Online user list:', data.users || data);
-          setUsers(data.users || data);
-        });
+      fetchOnlineUsers();
     };
     const handleConnect = () => {
-      console.log('Socket connect event: Online user list fetch');
       handleOnlineUpdate();
     };
     socket.on('user_online', handleOnlineUpdate);
     socket.on('disconnect', handleOnlineUpdate);
     socket.on('connect', handleConnect);
     socket.on('online_users_updated', () => {
-      console.log('online_users_updated event geldi');
       setTimeout(handleOnlineUpdate, 300);
     });
     return () => {
@@ -70,7 +59,7 @@ const OnlineUserList: React.FC = () => {
       socket.off('connect', handleConnect);
       socket.off('online_users_updated', handleOnlineUpdate);
     };
-  }, [socket]);
+  }, [socket, fetchOnlineUsers]);
 
   if (loading) {
     return (
@@ -87,7 +76,7 @@ const OnlineUserList: React.FC = () => {
         Kullanıcılar
       </h3>
       {users.length === 0 ? (
-        <div className="text-gray-400">Şu anda online kullanıcı yok.</div>
+        <div className="text-gray-400">şu anda online kullanıcı yok.</div>
       ) : (
         <ul className="space-y-2">
           {users.map((user) => (
@@ -106,6 +95,8 @@ const OnlineUserList: React.FC = () => {
       )}
     </div>
   );
-};
+});
+
+OnlineUserList.displayName = 'OnlineUserList';
 
 export default OnlineUserList;

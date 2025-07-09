@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import UserList from './UserList';
 import ChatWindow from '../components/chat/ChatWindow';
@@ -10,11 +10,24 @@ import { useConversations } from '../hooks/useConversations';
 import { useGlobalState } from '../contexts/GlobalStateContext';
 import { getConversationList } from '../api';
 
+// Tip tanımları
 interface User {
   _id: string;
   username: string;
   email: string;
   avatarUrl?: string;
+}
+
+// Conversation tipini güncelle
+interface Conversation {
+  _id: string;
+  participants: User[];
+  // Diğer conversation alanları gerekiyorsa ekle
+}
+
+interface Message {
+  content: string;
+  // Diğer message alanları gerekiyorsa ekle
 }
 
 const ChatPage: React.FC = () => {
@@ -33,15 +46,17 @@ const ChatPage: React.FC = () => {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const focusMessageId = params.get('focusMessageId');
-  const { activeConversation, setActiveConversation } = useGlobalState();
-  const [conversationsState, setConversationsState] = useState<any[]>([]);
+  const { setActiveConversation } = useGlobalState(); // activeConversation kullanılmıyor, kaldırıldı
+  const [conversationsState, setConversationsState] = useState<Conversation[]>(
+    []
+  );
 
-  // Son mesajları çek (her konuşma için)
+  // Son mesajlar için state
   const [lastMessages, setLastMessages] = useState<Record<string, string>>({});
 
   // Sync conversationsState with useConversations
   useEffect(() => {
-    setConversationsState(conversations);
+    setConversationsState(conversations as Conversation[]);
   }, [conversations]);
 
   // Fetch last message for each conversation
@@ -53,7 +68,7 @@ const ChatPage: React.FC = () => {
         return;
       }
       const accessToken = localStorage.getItem('accessToken');
-      const promises = conversations.map(async (conv) => {
+      const promises = (conversations as Conversation[]).map(async (conv) => {
         const res = await fetch(`/api/message/history/${conv._id}`, {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -62,7 +77,7 @@ const ChatPage: React.FC = () => {
         });
         if (res.ok) {
           const data = await res.json();
-          const msgs = data.messages || [];
+          const msgs: Message[] = data.messages || [];
           if (msgs.length > 0) {
             const lastMsg = msgs[msgs.length - 1];
             return { id: conv._id, text: lastMsg.content };
@@ -84,65 +99,69 @@ const ChatPage: React.FC = () => {
     };
   }, [conversations]);
 
-  // Yeni mesaj geldiğinde/gönderildiğinde sidebar'daki son mesajı güncelle
-  const handleNewMessage = (convId: string, msg: string) => {
+  // handleNewMessage fonksiyonunu useCallback ile sarmala
+  const handleNewMessage = useCallback((convId: string, msg: string) => {
     setLastMessages((prev) => ({ ...prev, [convId]: msg }));
-  };
+  }, []);
 
-  // Yeni bir konuşma başlatıldığında çağrılır
-  const handleNewConversation = async (newConvId: string, message: any) => {
-    setConversationId(newConvId);
-    // Konuşma listesine yeni konuşmayı ekle (veya tüm listeyi güncelle)
-    const updatedList = await getConversationList();
-    setConversationsState(updatedList.conversations);
-    setLastMessages((prev) => ({ ...prev, [newConvId]: message.content }));
-  };
+  // handleNewConversation fonksiyonunu useCallback ile sarmala
+  const handleNewConversation = useCallback(
+    async (newConvId: string, message: Message) => {
+      setConversationId(newConvId);
+      const updatedList = await getConversationList();
+      setConversationsState(updatedList.conversations as Conversation[]);
+      setLastMessages((prev) => ({ ...prev, [newConvId]: message.content }));
+    },
+    []
+  );
 
-  // Konuşma seçildiğinde ilgili kullanıcıyı bul
-  const handleConversationSelect = (conv: any) => {
-    if (!user) return;
-    setConversationId(conv._id);
-    setActiveConversation(conv);
-    // Karşı tarafı bul
-    const participant = conv.participants.find(
-      (p: any) => (typeof p === 'string' ? p : p._id) !== user._id
-    );
-    if (participant && typeof participant === 'object') {
-      setSelectedUser({
-        _id: participant._id,
-        username: participant.username || '',
-        email: participant.email || '',
-      });
-    } else if (typeof participant === 'string') {
-      setSelectedUser({ _id: participant, username: 'Kullanıcı', email: '' });
-    }
-  };
-
-  // Modal'dan kullanıcı seçilince konuşma başlat
-  const handleUserSelect = async (otherUser: User) => {
-    if (!user) return;
-    setShowUserModal(false);
-    setSelectedUser(otherUser);
-    // Mevcut konuşmaları kontrol et
-    const conv = conversations.find((c) => {
-      const participantIds = c.participants.map((p: string | { _id: string }) =>
-        typeof p === 'string' ? p : p._id
-      );
-      return (
-        participantIds.includes(otherUser._id) &&
-        participantIds.includes(user._id) &&
-        participantIds.length === 2
-      );
-    });
-    if (conv) {
+  // handleConversationSelect fonksiyonunu useCallback ile sarmala
+  const handleConversationSelect = useCallback(
+    (conv: Conversation) => {
+      if (!user) return;
       setConversationId(conv._id);
-      setActiveConversation(conv);
-    } else {
-      setConversationId(null);
-      setActiveConversation(null);
-    }
-    setUserListKey((k) => k + 1);
-  };
+      setActiveConversation(conv as Conversation);
+      const participant = conv.participants.find(
+        (p: User) => p._id !== user._id
+      );
+      if (participant) {
+        setSelectedUser({
+          _id: participant._id,
+          username: participant.username || '',
+          email: participant.email || '',
+        });
+      } else {
+        setSelectedUser({ _id: conv._id, username: 'Kullanıcı', email: '' });
+      }
+    },
+    [user, setActiveConversation]
+  );
+
+  // handleUserSelect fonksiyonunu useCallback ile sarmala
+  const handleUserSelect = useCallback(
+    async (otherUser: User) => {
+      if (!user) return;
+      setShowUserModal(false);
+      setSelectedUser(otherUser);
+      const conv = (conversations as Conversation[]).find((c: Conversation) => {
+        const participantIds = c.participants.map((p: User) => p._id);
+        return (
+          participantIds.includes(otherUser._id) &&
+          participantIds.includes(user._id) &&
+          participantIds.length === 2
+        );
+      });
+      if (conv) {
+        setConversationId(conv._id);
+        setActiveConversation(conv as Conversation);
+      } else {
+        setConversationId(null);
+        setActiveConversation(null as unknown as Conversation);
+      }
+      setUserListKey((k) => k + 1);
+    },
+    [user, conversations, setActiveConversation]
+  );
 
   // URL değişince conversationId ve focusMessageId'yi güncelle
   useEffect(() => {
@@ -150,21 +169,23 @@ const ChatPage: React.FC = () => {
     const urlConvId = urlParams.get('conversationId');
     if (urlConvId && urlConvId !== conversationId) {
       setConversationId(urlConvId);
-      const conv = conversations.find((c) => c._id === urlConvId);
+      const conv = (conversations as Conversation[]).find(
+        (c: Conversation) => c._id === urlConvId
+      );
       if (conv && user) {
-        setActiveConversation(conv);
+        setActiveConversation(conv as Conversation);
         const participant = conv.participants.find(
-          (p: any) => (typeof p === 'string' ? p : p._id) !== user._id
+          (p: User) => p._id !== user._id
         );
-        if (participant && typeof participant === 'object') {
+        if (participant) {
           setSelectedUser({
             _id: participant._id,
             username: participant.username || '',
             email: participant.email || '',
           });
-        } else if (typeof participant === 'string') {
+        } else {
           setSelectedUser({
-            _id: participant,
+            _id: conv._id,
             username: 'Kullanıcı',
             email: '',
           });
@@ -198,14 +219,11 @@ const ChatPage: React.FC = () => {
           ) : (
             conversationsState.map((conv) => {
               const participant = conv.participants.find(
-                (p: any) => (typeof p === 'string' ? p : p._id) !== user?._id
+                (p: User) => p._id !== user?._id
               );
-              const username =
-                typeof participant === 'object'
-                  ? participant.username
-                  : 'Kullanıcı';
+              const username = participant ? participant.username : 'Kullanıcı';
               const avatarUrl =
-                typeof participant === 'object' && participant.avatarUrl
+                participant && participant.avatarUrl
                   ? participant.avatarUrl
                   : undefined;
               const lastMsg = lastMessages[conv._id] || '';

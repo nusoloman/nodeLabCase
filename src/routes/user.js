@@ -26,4 +26,7 @@ const authMiddleware = require('../middlewares/authMiddleware');
 
 router.get('/list', authMiddleware, userController.list);
 
+// Profil güncelleme endpointi
+router.patch('/profile', authMiddleware, userController.updateProfile);
+
 module.exports = router;

@@ -83,4 +83,13 @@ export async function sendMessage(receiver: string, content: string) {
   });
 }
 
+// Profil güncelleme
+export async function updateProfile(username: string, email: string) {
+  return apiRequest<{ user: any }>('/user/profile', {
+    method: 'PATCH',
+    body: JSON.stringify({ username, email }),
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
 // Add more endpoints as needed...

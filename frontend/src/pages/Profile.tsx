@@ -8,7 +8,9 @@ import {
   CardContent,
   CardFooter,
 } from '../components/ui/Card';
-import { User, Mail, Calendar, RefreshCcw, LogOut } from 'lucide-react';
+import { User, Calendar, RefreshCcw, LogOut } from 'lucide-react';
+import { updateProfile } from '../api';
+import { useNotification } from '../contexts/NotificationContext';
 
 interface UserProfile {
   _id: string;
@@ -19,10 +21,14 @@ interface UserProfile {
 }
 
 const Profile: React.FC = () => {
-  const { logout } = useAuth();
+  const { logout, setUser } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [editUsername, setEditUsername] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [saving, setSaving] = useState(false);
+  const { notify } = useNotification();
 
   useEffect(() => {
     fetchProfile();
@@ -42,6 +48,8 @@ const Profile: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         setProfile(data.user);
+        setEditUsername(data.user.username);
+        setEditEmail(data.user.email);
       } else if (response.status === 401) {
         setError('Oturum süresi doldu. Lütfen tekrar giriş yapın.');
         logout();
@@ -52,6 +60,28 @@ const Profile: React.FC = () => {
       setError('Bağlantı hatası oluştu.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      const res = await updateProfile(editUsername, editEmail);
+      setProfile(res.user);
+      setUser(res.user);
+      notify('Profil başarıyla güncellendi.', 'success');
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'message' in err) {
+        setError(
+          (err as { message: string }).message || 'Güncelleme başarısız.'
+        );
+      } else {
+        setError('Güncelleme başarısız.');
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -101,11 +131,39 @@ const Profile: React.FC = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-6">
-              <div className="flex items-center space-x-3">
-                <Mail className="w-5 h-5 text-purple-400" />
-                <span className="text-gray-200">{profile?.email}</span>
+            <form className="space-y-6" onSubmit={handleSave}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-gray-400 mb-1">
+                    Kullanıcı Adı
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    value={editUsername}
+                    onChange={(e) => setEditUsername(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-400 mb-1">Email</label>
+                  <input
+                    type="email"
+                    className="w-full px-4 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    required
+                  />
+                </div>
               </div>
+              <div className="flex items-center space-x-4">
+                <Button type="submit" variant="primary" loading={saving}>
+                  Kaydet
+                </Button>
+                {error && <span className="text-red-400 text-sm">{error}</span>}
+              </div>
+            </form>
+            <div className="mt-8 space-y-2">
               <div className="flex items-center space-x-3">
                 <Calendar className="w-5 h-5 text-purple-400" />
                 <span className="text-gray-200">
