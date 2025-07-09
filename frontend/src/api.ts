@@ -74,4 +74,13 @@ export async function getMessageHistory(conversationId: string) {
   return apiRequest<{ messages: any[] }>(`/message/history/${conversationId}`);
 }
 
+// Send message (returns message and conversationId)
+export async function sendMessage(receiver: string, content: string) {
+  return apiRequest<{ data: any; conversationId: string }>('/message/send', {
+    method: 'POST',
+    body: JSON.stringify({ receiver, content }),
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
 // Add more endpoints as needed...

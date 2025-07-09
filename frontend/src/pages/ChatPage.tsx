@@ -8,6 +8,7 @@ import { Clock, Search } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useConversations } from '../hooks/useConversations';
 import { useGlobalState } from '../contexts/GlobalStateContext';
+import { getConversationList } from '../api';
 
 interface User {
   _id: string;
@@ -33,9 +34,15 @@ const ChatPage: React.FC = () => {
   const params = new URLSearchParams(location.search);
   const focusMessageId = params.get('focusMessageId');
   const { activeConversation, setActiveConversation } = useGlobalState();
+  const [conversationsState, setConversationsState] = useState<any[]>([]);
 
   // Son mesajları çek (her konuşma için)
   const [lastMessages, setLastMessages] = useState<Record<string, string>>({});
+
+  // Sync conversationsState with useConversations
+  useEffect(() => {
+    setConversationsState(conversations);
+  }, [conversations]);
 
   // Fetch last message for each conversation
   useEffect(() => {
@@ -80,6 +87,15 @@ const ChatPage: React.FC = () => {
   // Yeni mesaj geldiğinde/gönderildiğinde sidebar'daki son mesajı güncelle
   const handleNewMessage = (convId: string, msg: string) => {
     setLastMessages((prev) => ({ ...prev, [convId]: msg }));
+  };
+
+  // Yeni bir konuşma başlatıldığında çağrılır
+  const handleNewConversation = async (newConvId: string, message: any) => {
+    setConversationId(newConvId);
+    // Konuşma listesine yeni konuşmayı ekle (veya tüm listeyi güncelle)
+    const updatedList = await getConversationList();
+    setConversationsState(updatedList.conversations);
+    setLastMessages((prev) => ({ ...prev, [newConvId]: message.content }));
   };
 
   // Konuşma seçildiğinde ilgili kullanıcıyı bul
@@ -177,10 +193,10 @@ const ChatPage: React.FC = () => {
             </div>
           ) : convError ? (
             <div className="text-red-400 text-sm">{convError}</div>
-          ) : conversations.length === 0 ? (
+          ) : conversationsState.length === 0 ? (
             <div className="text-gray-400 text-sm">Henüz konuşma yok.</div>
           ) : (
-            conversations.map((conv) => {
+            conversationsState.map((conv) => {
               const participant = conv.participants.find(
                 (p: any) => (typeof p === 'string' ? p : p._id) !== user?._id
               );
@@ -261,8 +277,9 @@ const ChatPage: React.FC = () => {
             conversationId={conversationId}
             currentUserId={user._id}
             otherUser={selectedUser}
-            onNewMessage={handleNewMessage}
             focusMessageId={focusMessageId || undefined}
+            onNewMessage={handleNewMessage}
+            onNewConversation={handleNewConversation}
           />
         ) : (
           <div className="text-gray-400 text-center">

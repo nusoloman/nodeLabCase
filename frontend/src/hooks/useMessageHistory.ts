@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { getMessageHistory } from '../api';
 import { useNotification } from '../contexts/NotificationContext';
 
@@ -26,5 +26,14 @@ export function useMessageHistory(conversationId: string | null) {
       .finally(() => setLoading(false));
   }, [conversationId, notify]);
 
-  return { messages, loading, error };
+  // Add a function to append a new message
+  const addMessage = useCallback((msg: any) => {
+    setMessages((prev) => {
+      // Prevent duplicate messages by _id
+      if (msg._id && prev.some((m) => m._id === msg._id)) return prev;
+      return [...prev, msg];
+    });
+  }, []);
+
+  return { messages, loading, error, addMessage };
 }

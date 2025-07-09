@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
@@ -7,33 +7,54 @@ import Input from '../components/ui/Input';
 import { Eye, EyeOff, User, Mail, Lock } from 'lucide-react';
 import { useLogin } from '../hooks/useLogin';
 import { useRegister } from '../hooks/useRegister';
+import { useForm, type SubmitHandler } from 'react-hook-form';
+
+interface AuthFormValues {
+  username: string;
+  email: string;
+  password: string;
+}
 
 const Auth: React.FC = () => {
-  const [isLogin, setIsLogin] = useState(true);
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [isLogin, setIsLogin] = React.useState(true);
+  const [showPassword, setShowPassword] = React.useState(false);
   const { login: doLogin, loading } = useLogin();
   const { login: setTokens } = useAuth();
   const { register: doRegister, loading: registerLoading } = useRegister();
   const location = useLocation();
   const navigate = useNavigate();
 
-  // URL'den login/register durumunu al
   React.useEffect(() => {
     setIsLogin(location.pathname === '/login');
   }, [location.pathname]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+  } = useForm<AuthFormValues>({
+    mode: 'onChange',
+    defaultValues: {
+      username: '',
+      email: '',
+      password: '',
+    },
+  });
+
+  const onSubmit: SubmitHandler<AuthFormValues> = async (values) => {
     if (isLogin) {
-      const data = await doLogin(email, password);
+      const data = await doLogin(values.email, values.password);
       if (data) setTokens(data.accessToken, data.refreshToken);
     } else {
-      const result = await doRegister(username, email, password);
+      const result = await doRegister(
+        values.username,
+        values.email,
+        values.password
+      );
       if (result && result.success) {
         navigate('/login');
+        reset();
       }
     }
   };
@@ -52,53 +73,57 @@ const Auth: React.FC = () => {
           </CardHeader>
 
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Hata kutusu kaldırıldı, sadece toast notification olacak */}
-              {/* {error && (
-                <div className="bg-red-500/10 border border-red-500 text-red-400 px-4 py-3 rounded-lg text-sm">
-                  {error}
-                </div>
-              )} */}
-
+            <form
+              onSubmit={handleSubmit(onSubmit)}
+              className="space-y-6"
+              noValidate
+            >
               <div className="space-y-4">
                 {!isLogin && (
                   <Input
                     id="username"
-                    name="username"
                     label="Kullanıcı Adı"
                     type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    icon={<User />}
                     placeholder="kullaniciadi"
-                    required
+                    icon={<User />}
+                    {...register('username', {
+                      required: !isLogin ? 'Kullanıcı adı zorunlu' : false,
+                      minLength: { value: 3, message: 'En az 3 karakter' },
+                      maxLength: { value: 20, message: 'En fazla 20 karakter' },
+                    })}
+                    error={errors.username?.message as string}
                   />
                 )}
 
                 <Input
                   id="email"
-                  name="email"
                   label="Email Adresi"
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  icon={<Mail />}
                   placeholder="you@example.com"
-                  required
+                  icon={<Mail />}
+                  {...register('email', {
+                    required: 'Email zorunlu',
+                    pattern: {
+                      value: /^[^@\s]+@[^@\s]+\.[^@\s]+$/,
+                      message: 'Geçerli bir email girin',
+                    },
+                  })}
+                  error={errors.email?.message as string}
                 />
 
                 <Input
                   id="password"
-                  name="password"
                   label="Şifre"
                   type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
                   icon={<Lock />}
                   rightIcon={showPassword ? <EyeOff /> : <Eye />}
                   onRightIconClick={() => setShowPassword(!showPassword)}
-                  placeholder="••••••••"
-                  required
+                  {...register('password', {
+                    required: 'Şifre zorunlu',
+                    minLength: { value: 6, message: 'En az 6 karakter' },
+                  })}
+                  error={errors.password?.message as string}
                 />
               </div>
 

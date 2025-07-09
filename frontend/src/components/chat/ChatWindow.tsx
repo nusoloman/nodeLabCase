@@ -4,6 +4,7 @@ import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
 import { useSocket } from '../../contexts/SocketContext';
 import { useMessageHistory } from '../../hooks/useMessageHistory';
+import { sendMessage } from '../../api';
 
 interface Message {
   _id?: string;
@@ -17,19 +18,22 @@ interface ChatWindowProps {
   conversationId: string | null;
   currentUserId: string;
   otherUser: { _id: string; username: string; avatarUrl?: string };
-  onNewMessage?: (conversationId: string, message: string) => void;
   focusMessageId?: string;
+  onNewMessage?: (conversationId: string, message: string) => void;
+  onNewConversation?: (conversationId: string, message: Message) => void;
 }
 
 const ChatWindow: React.FC<ChatWindowProps> = ({
   conversationId,
   currentUserId,
   otherUser,
-  onNewMessage,
   focusMessageId,
+  onNewMessage,
+  onNewConversation,
 }) => {
   const { socket } = useSocket();
-  const { messages, loading, error } = useMessageHistory(conversationId);
+  const { messages, loading, error, addMessage } =
+    useMessageHistory(conversationId);
   const [isOtherTyping, setIsOtherTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -46,12 +50,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   useEffect(() => {
     if (!socket) return;
     const handleMessage = (msg: Message) => {
-      // Eğer aynı id'ye sahip mesaj zaten varsa ekleme
-      if (msg._id && messages.some((m) => m._id === msg._id)) {
-        return;
-      }
-      // Sadece yeni mesajı ekle (bu hook'un state'ini güncelleyemezsin, burada notification veya başka bir şey yapılabilir)
-      if (conversationId && onNewMessage && msg.content) {
+      addMessage(msg);
+      if (onNewMessage && conversationId && msg.content) {
         onNewMessage(conversationId, msg.content);
       }
     };
@@ -59,7 +59,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     return () => {
       socket.off('message_received', handleMessage);
     };
-  }, [socket, conversationId, onNewMessage, messages]);
+  }, [socket, conversationId, addMessage, onNewMessage]);
 
   // Typing eventini dinle
   useEffect(() => {
@@ -130,15 +130,34 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     socket.emit('typing', { conversationId, isTyping });
   };
 
-  const handleSend = (text: string) => {
-    if (!socket) return;
-    const msg = {
-      receiver: otherUser._id,
-      content: text,
-    };
-    socket.emit('send_message', msg);
-    if (conversationId && onNewMessage) {
-      onNewMessage(conversationId, text);
+  const handleSend = async (text: string) => {
+    if (!otherUser?._id) return;
+    if (!conversationId) {
+      // İlk mesaj, yeni konuşma başlat
+      try {
+        const res = await sendMessage(otherUser._id, text);
+        if (res && res.data && res.conversationId) {
+          addMessage(res.data);
+          if (onNewConversation) {
+            onNewConversation(res.conversationId, res.data);
+          }
+          if (onNewMessage) {
+            onNewMessage(res.conversationId, text);
+          }
+        }
+      } catch (err) {
+        // Hata yönetimi eklenebilir
+      }
+    } else {
+      if (!socket) return;
+      const msg = {
+        receiver: otherUser._id,
+        content: text,
+      };
+      socket.emit('send_message', msg);
+      if (onNewMessage && conversationId) {
+        onNewMessage(conversationId, text);
+      }
     }
   };
 
