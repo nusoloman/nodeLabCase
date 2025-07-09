@@ -1,0 +1,114 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# dotenv
+.env
+.env.*
+
+# Build output
+/dist/
+/build/
+/.next/
+/.nuxt/
+/.output/
+
+# Vite
+.vite/
+
+# Coverage
+coverage/
+
+# IDE/editor
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+.DS_Store
+Thumbs.db
+
+# OS
+.DS_Store
+*.swp
+
+# Test
+/coverage/
+/jest-*
+
+# Docker
+*.local
+*.pid
+*.seed
+*.pid.lock
+docker-compose.override.yml
+
+# Misc
+*.tgz
+*.gz
+*.zip
+*.bak
+*.tmp
+*.temp
+
+# TypeScript
+*.tsbuildinfo
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env*
+frontend/.next/
+frontend/.nuxt/
+frontend/.output/
+frontend/coverage/
+frontend/.turbo/
+
+# Backend
+backend/node_modules/
+backend/dist/
+backend/.env*
+backend/coverage/
+
+# Monorepo/lerna
+lerna-debug.log
+
+# PM2
+pids
+*.pid
+*.seed
+
+# Redis/Mongo/Elastic dumps
+*.rdb
+*.ldb
+*.bak
+*.wt
+*.snappy
+*.sst
+*.db
+*.lock
+
+# RabbitMQ
+*.pid
+*.sock
+
+# Swagger
+swagger.json
+swagger.yaml
+
+# ElasticSearch
+/elasticsearch-data/
+
+# Custom
+*.iml
+*.orig
+
+# Ignore local config
+config.local.js 

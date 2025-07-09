@@ -1,0 +1,39 @@
+{
+  "name": "nodelabcase",
+  "version": "1.0.0",
+  "description": "nodelabs backend developer case",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon"
+  },
+  "dependencies": {
+    "@elastic/elasticsearch": "^9.0.3",
+    "@types/react-router-dom": "^5.3.3",
+    "amqplib": "^0.10.8",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.1",
+    "express-validator": "^7.2.1",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongo-sanitize": "^1.1.0",
+    "mongoose": "^7.8.7",
+    "node-cron": "^4.2.0",
+    "path": "^0.12.7",
+    "react-router-dom": "^7.6.3",
+    "redis": "^4.7.1",
+    "socket.io": "^4.8.1",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
