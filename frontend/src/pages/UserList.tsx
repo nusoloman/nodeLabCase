@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { API_URL } from '../config';
 import { Link } from 'react-router-dom';
 import Input from '../components/ui/Input';
 import { User as UserIcon, Mail, Search, MessageCircle } from 'lucide-react';
+import { useUserList } from '../hooks/useUserList';
 
 interface User {
   _id: string;
@@ -23,56 +23,18 @@ const UserList: React.FC<UserListProps> = ({
   selectedUserId,
   excludeCurrentUser = false,
 }) => {
-  const { user, logout } = useAuth();
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { user } = useAuth();
+  const { users, loading, error } = useUserList();
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    fetchUsers();
-    // eslint-disable-next-line
-  }, []);
-
-  const fetchUsers = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const accessToken = localStorage.getItem('accessToken');
-      const response = await fetch(`${API_URL}/user/list`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        let userList = data.users || data;
-
-        // Giriş yapan kullanıcıyı filtrele
-        if (excludeCurrentUser && user) {
-          userList = userList.filter((u: User) => u._id !== user._id);
-        }
-
-        setUsers(userList);
-      } else if (response.status === 401) {
-        setError('Oturum süresi doldu. Lütfen tekrar giriş yapın.');
-        logout();
-      } else {
-        setError('Kullanıcı listesi alınamadı.');
-      }
-    } catch {
-      setError('Bağlantı hatası oluştu.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filteredUsers = users.filter(
-    (user) =>
-      user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase())
+  let filteredUsers = users;
+  if (excludeCurrentUser && user) {
+    filteredUsers = filteredUsers.filter((u: User) => u._id !== user._id);
+  }
+  filteredUsers = filteredUsers.filter(
+    (u) =>
+      u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {

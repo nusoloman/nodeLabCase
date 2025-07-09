@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { API_URL } from '../config';
 import UserList from './UserList';
 import ChatWindow from '../components/chat/ChatWindow';
 import ScheduleMessageModal from '../components/chat/ScheduleMessageModal';
 import MessageSearchModal from '../components/chat/MessageSearchModal';
 import { Clock, Search } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
+import { useConversations } from '../hooks/useConversations';
+import { useGlobalState } from '../contexts/GlobalStateContext';
 
 interface User {
   _id: string;
@@ -15,17 +16,15 @@ interface User {
   avatarUrl?: string;
 }
 
-interface Conversation {
-  _id: string;
-  participants: (string | { _id: string; username?: string; email?: string })[];
-  conversationId?: string;
-}
-
 const ChatPage: React.FC = () => {
   const { user } = useAuth();
+  const {
+    conversations,
+    loading: convLoading,
+    error: convError,
+  } = useConversations();
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [showUserModal, setShowUserModal] = useState(false);
   const [userListKey, setUserListKey] = useState(0); // Modalı her açışta UserList'i resetlemek için
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -33,34 +32,22 @@ const ChatPage: React.FC = () => {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const focusMessageId = params.get('focusMessageId');
-
-  // Geçmiş konuşmaları çek
-  useEffect(() => {
-    if (!user) return;
-    const fetchConversations = async () => {
-      const accessToken = localStorage.getItem('accessToken');
-      const res = await fetch(`${API_URL}/conversation/list`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setConversations(data.conversations || []);
-      }
-    };
-    fetchConversations();
-  }, [user]);
+  const { activeConversation, setActiveConversation } = useGlobalState();
 
   // Son mesajları çek (her konuşma için)
   const [lastMessages, setLastMessages] = useState<Record<string, string>>({});
+
+  // Fetch last message for each conversation
   useEffect(() => {
-    const fetchLastMessages = async () => {
+    let isMounted = true;
+    async function fetchLastMessages() {
+      if (!conversations.length) {
+        setLastMessages({});
+        return;
+      }
       const accessToken = localStorage.getItem('accessToken');
       const promises = conversations.map(async (conv) => {
-        if (!conv._id) return;
-        const res = await fetch(`${API_URL}/message/history/${conv._id}`, {
+        const res = await fetch(`/api/message/history/${conv._id}`, {
           headers: {
             Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
@@ -77,13 +64,17 @@ const ChatPage: React.FC = () => {
         return { id: conv._id, text: '' };
       });
       const results = await Promise.all(promises);
+      if (!isMounted) return;
       const msgMap: Record<string, string> = {};
       results.forEach((r) => {
         if (r) msgMap[r.id] = r.text;
       });
       setLastMessages(msgMap);
+    }
+    fetchLastMessages();
+    return () => {
+      isMounted = false;
     };
-    if (conversations.length > 0) fetchLastMessages();
   }, [conversations]);
 
   // Yeni mesaj geldiğinde/gönderildiğinde sidebar'daki son mesajı güncelle
@@ -92,12 +83,13 @@ const ChatPage: React.FC = () => {
   };
 
   // Konuşma seçildiğinde ilgili kullanıcıyı bul
-  const handleConversationSelect = (conv: Conversation) => {
+  const handleConversationSelect = (conv: any) => {
     if (!user) return;
     setConversationId(conv._id);
+    setActiveConversation(conv);
     // Karşı tarafı bul
     const participant = conv.participants.find(
-      (p) => (typeof p === 'string' ? p : p._id) !== user._id
+      (p: any) => (typeof p === 'string' ? p : p._id) !== user._id
     );
     if (participant && typeof participant === 'object') {
       setSelectedUser({
@@ -106,7 +98,6 @@ const ChatPage: React.FC = () => {
         email: participant.email || '',
       });
     } else if (typeof participant === 'string') {
-      // fallback (username/email yoksa)
       setSelectedUser({ _id: participant, username: 'Kullanıcı', email: '' });
     }
   };
@@ -117,36 +108,23 @@ const ChatPage: React.FC = () => {
     setShowUserModal(false);
     setSelectedUser(otherUser);
     // Mevcut konuşmaları kontrol et
-    const accessToken = localStorage.getItem('accessToken');
-    try {
-      const res = await fetch(`${API_URL}/conversation/list`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const conv = data.conversations?.find((c: Conversation) => {
-          const participantIds = c.participants.map(
-            (p: string | { _id: string }) => (typeof p === 'string' ? p : p._id)
-          );
-          return (
-            participantIds.includes(otherUser._id) &&
-            participantIds.includes(user._id) &&
-            participantIds.length === 2
-          );
-        });
-        if (conv) {
-          setConversationId(conv._id);
-        } else {
-          setConversationId(null);
-        }
-      }
-    } catch (error) {
+    const conv = conversations.find((c) => {
+      const participantIds = c.participants.map((p: string | { _id: string }) =>
+        typeof p === 'string' ? p : p._id
+      );
+      return (
+        participantIds.includes(otherUser._id) &&
+        participantIds.includes(user._id) &&
+        participantIds.length === 2
+      );
+    });
+    if (conv) {
+      setConversationId(conv._id);
+      setActiveConversation(conv);
+    } else {
       setConversationId(null);
+      setActiveConversation(null);
     }
-    // Modalı her açışta UserList'i resetlemek için anahtar değiştir
     setUserListKey((k) => k + 1);
   };
 
@@ -156,11 +134,11 @@ const ChatPage: React.FC = () => {
     const urlConvId = urlParams.get('conversationId');
     if (urlConvId && urlConvId !== conversationId) {
       setConversationId(urlConvId);
-      // Konuşma listesinden ilgili kullanıcıyı bul
       const conv = conversations.find((c) => c._id === urlConvId);
       if (conv && user) {
+        setActiveConversation(conv);
         const participant = conv.participants.find(
-          (p) => (typeof p === 'string' ? p : p._id) !== user._id
+          (p: any) => (typeof p === 'string' ? p : p._id) !== user._id
         );
         if (participant && typeof participant === 'object') {
           setSelectedUser({
@@ -193,13 +171,18 @@ const ChatPage: React.FC = () => {
           </button>
         </div>
         <div className="flex-1 overflow-y-auto space-y-2">
-          {conversations.length === 0 ? (
+          {convLoading ? (
+            <div className="text-gray-400 text-sm">
+              Konuşmalar yükleniyor...
+            </div>
+          ) : convError ? (
+            <div className="text-red-400 text-sm">{convError}</div>
+          ) : conversations.length === 0 ? (
             <div className="text-gray-400 text-sm">Henüz konuşma yok.</div>
           ) : (
             conversations.map((conv) => {
-              // Karşı tarafı bul
               const participant = conv.participants.find(
-                (p) => (typeof p === 'string' ? p : p._id) !== user?._id
+                (p: any) => (typeof p === 'string' ? p : p._id) !== user?._id
               );
               const username =
                 typeof participant === 'object'

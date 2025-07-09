@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { useLocation, Link } from 'react-router-dom';
+import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { API_URL } from '../config';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { Eye, EyeOff, User, Mail, Lock } from 'lucide-react';
+import { useLogin } from '../hooks/useLogin';
+import { useRegister } from '../hooks/useRegister';
 
 const Auth: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -13,11 +14,11 @@ const Auth: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const { login } = useAuth();
+  const { login: doLogin, loading } = useLogin();
+  const { login: setTokens } = useAuth();
+  const { register: doRegister, loading: registerLoading } = useRegister();
   const location = useLocation();
+  const navigate = useNavigate();
 
   // URL'den login/register durumunu al
   React.useEffect(() => {
@@ -26,34 +27,14 @@ const Auth: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    try {
-      const endpoint = isLogin ? '/auth/login' : '/auth/register';
-      const body = isLogin
-        ? { email, password }
-        : { username, email, password };
-
-      const response = await fetch(`${API_URL}${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        login(data.accessToken, data.refreshToken);
-      } else {
-        setError(data.message || 'Bir hata oluştu');
+    if (isLogin) {
+      const data = await doLogin(email, password);
+      if (data) setTokens(data.accessToken, data.refreshToken);
+    } else {
+      const result = await doRegister(username, email, password);
+      if (result && result.success) {
+        navigate('/login');
       }
-    } catch {
-      setError('Bağlantı hatası oluştu');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -72,11 +53,12 @@ const Auth: React.FC = () => {
 
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              {error && (
+              {/* Hata kutusu kaldırıldı, sadece toast notification olacak */}
+              {/* {error && (
                 <div className="bg-red-500/10 border border-red-500 text-red-400 px-4 py-3 rounded-lg text-sm">
                   {error}
                 </div>
-              )}
+              )} */}
 
               <div className="space-y-4">
                 {!isLogin && (
@@ -142,7 +124,7 @@ const Auth: React.FC = () => {
 
               <Button
                 type="submit"
-                loading={loading}
+                loading={isLogin ? loading : registerLoading}
                 className="w-full"
                 size="lg"
               >
