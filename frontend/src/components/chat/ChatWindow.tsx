@@ -18,6 +18,7 @@ interface ChatWindowProps {
   currentUserId: string;
   otherUser: { _id: string; username: string; avatarUrl?: string };
   onNewMessage?: (conversationId: string, message: string) => void;
+  focusMessageId?: string;
 }
 
 const ChatWindow: React.FC<ChatWindowProps> = ({
@@ -25,12 +26,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   currentUserId,
   otherUser,
   onNewMessage,
+  focusMessageId,
 }) => {
   const { socket } = useSocket();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [isOtherTyping, setIsOtherTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Odaya katıl ve geçmiş mesajları çek (sadece conversationId varsa)
   useEffect(() => {
@@ -60,7 +63,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   useEffect(() => {
     if (!socket) return;
     const handleMessage = (msg: Message) => {
-      setMessages((prev) => [...prev, msg]);
+      setMessages((prev) => {
+        // Eğer aynı id'ye sahip mesaj zaten varsa ekleme
+        if (msg._id && prev.some((m) => m._id === msg._id)) {
+          return prev;
+        }
+        return [...prev, msg];
+      });
       if (conversationId && onNewMessage && msg.content) {
         onNewMessage(conversationId, msg.content);
       }
@@ -89,6 +98,49 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   // Scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // focusMessageId varsa ilgili mesaja scroll/focus yap
+  useEffect(() => {
+    if (focusMessageId && messageRefs.current[focusMessageId]) {
+      messageRefs.current[focusMessageId]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+      messageRefs.current[focusMessageId]?.classList.add(
+        'ring-2',
+        'ring-purple-500'
+      );
+      setTimeout(() => {
+        messageRefs.current[focusMessageId]?.classList.remove(
+          'ring-2',
+          'ring-purple-500'
+        );
+      }, 2000);
+    }
+  }, [focusMessageId, messages]);
+
+  // window'dan focusMessage eventini dinle
+  useEffect(() => {
+    const handler = (e: CustomEvent<{ messageId: string }>) => {
+      const id = e.detail?.messageId;
+      if (id && messageRefs.current[id]) {
+        messageRefs.current[id]?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        });
+        messageRefs.current[id]?.classList.add('ring-2', 'ring-purple-500');
+        setTimeout(() => {
+          messageRefs.current[id]?.classList.remove(
+            'ring-2',
+            'ring-purple-500'
+          );
+        }, 2000);
+      }
+    };
+    window.addEventListener('focusMessage', handler as EventListener);
+    return () =>
+      window.removeEventListener('focusMessage', handler as EventListener);
   }, [messages]);
 
   // Typing eventini emit et
@@ -132,25 +184,32 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
               typeof msg.sender === 'string' ? msg.sender : msg.sender?._id;
             const isOwn = senderId === currentUserId;
             return (
-              <MessageBubble
+              <div
                 key={msg._id || i}
-                message={msg.content}
-                isOwn={isOwn}
-                senderName={
-                  isOwn
-                    ? undefined
-                    : (typeof msg.sender === 'object' && msg.sender.username) ||
-                      otherUser.username
-                }
-                time={
-                  msg.createdAt
-                    ? new Date(msg.createdAt).toLocaleTimeString('tr-TR', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })
-                    : undefined
-                }
-              />
+                ref={(el) => {
+                  if (msg._id) messageRefs.current[msg._id] = el;
+                }}
+              >
+                <MessageBubble
+                  message={msg.content}
+                  isOwn={isOwn}
+                  senderName={
+                    isOwn
+                      ? undefined
+                      : (typeof msg.sender === 'object' &&
+                          msg.sender.username) ||
+                        otherUser.username
+                  }
+                  time={
+                    msg.createdAt
+                      ? new Date(msg.createdAt).toLocaleTimeString('tr-TR', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : undefined
+                  }
+                />
+              </div>
             );
           })
         )}

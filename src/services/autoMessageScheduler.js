@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const User = require('../models/User');
 const AutoMessage = require('../models/AutoMessage');
+const rabbitmqService = require('../services/rabbitmqService');
 
 function shuffle(array) {
   for (let i = array.length - 1; i > 0; i--) {
@@ -23,28 +24,20 @@ const randomMessages = [
   'Gülümsemeyi unutma!',
 ];
 
-cron.schedule('0 2 * * *', async () => {
+cron.schedule('* * * * *', async () => {
   try {
-    const users = await User.find({}, '_id');
-    if (users.length < 2) return;
-    const shuffled = shuffle(users.map((u) => u._id.toString()));
-    for (let i = 0; i < shuffled.length - 1; i += 2) {
-      const from = shuffled[i];
-      const to = shuffled[i + 1];
-      const content =
-        randomMessages[Math.floor(Math.random() * randomMessages.length)];
-      const sendDate = new Date();
-      await AutoMessage.create({
-        from,
-        to,
-        content,
-        sendDate,
-        isQueued: false,
-        isSent: false,
-      });
+    const now = new Date();
+    const messages = await AutoMessage.find({
+      sendDate: { $lte: now },
+      isQueued: false,
+    });
+
+    for (const msg of messages) {
+      await rabbitmqService.sendToQueue(msg);
+      msg.isQueued = true;
+      await msg.save();
     }
-    // Eğer tek kişi kaldıysa eşleşmeden atlanır
   } catch (err) {
-    console.error('AutoMessage cronjob error:', err);
+    console.error('AutoMessage queue cronjob error:', err);
   }
 });

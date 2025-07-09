@@ -29,10 +29,9 @@ async function startConsumer() {
   channel.consume(QUEUE, async (msg) => {
     if (msg !== null) {
       const data = JSON.parse(msg.content.toString());
-      // AutoMessage'ı DB'de bul ve güncelle
       const autoMsg = await AutoMessage.findById(data._id);
       if (!autoMsg) return channel.ack(msg);
-      // Conversation bul veya oluştur
+      if (autoMsg.isSent) return channel.ack(msg); // idempotency
       let conversation = await Conversation.findOne({
         participants: { $all: [autoMsg.from, autoMsg.to], $size: 2 },
       });
@@ -41,17 +40,29 @@ async function startConsumer() {
           participants: [autoMsg.from, autoMsg.to],
         });
       }
-      // Message kaydet
+      // Aynı mesaj daha önce kaydedilmiş mi?
+      const existing = await Message.findOne({
+        sender: autoMsg.from,
+        receiver: autoMsg.to,
+        content: autoMsg.content,
+        conversation: conversation._id,
+        createdAt: autoMsg.sendDate,
+      });
+      if (existing) {
+        autoMsg.isSent = true;
+        await autoMsg.save();
+        channel.ack(msg);
+        return;
+      }
       const message = await Message.create({
         sender: autoMsg.from,
         receiver: autoMsg.to,
         content: autoMsg.content,
         conversation: conversation._id,
+        createdAt: autoMsg.sendDate,
       });
-      // AutoMessage'ı güncelle
       autoMsg.isSent = true;
       await autoMsg.save();
-      // Socket.IO ile alıcıya mesajı gönder
       if (ioInstance) {
         ioInstance.to(conversation._id.toString()).emit('message_received', {
           _id: message._id,

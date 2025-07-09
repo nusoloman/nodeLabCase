@@ -2,6 +2,7 @@ const { Client } = require('@elastic/elasticsearch');
 
 const esClient = new Client({
   node: process.env.ELASTIC_URL || 'http://localhost:9200',
+  apiVersion: '8.11', // ES 9.x ile uyumlu API versiyonu
 });
 const MESSAGE_INDEX = 'messages';
 

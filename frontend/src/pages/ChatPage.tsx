@@ -3,6 +3,10 @@ import { useAuth } from '../hooks/useAuth';
 import { API_URL } from '../config';
 import UserList from './UserList';
 import ChatWindow from '../components/chat/ChatWindow';
+import ScheduleMessageModal from '../components/chat/ScheduleMessageModal';
+import MessageSearchModal from '../components/chat/MessageSearchModal';
+import { Clock, Search } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 
 interface User {
   _id: string;
@@ -24,6 +28,11 @@ const ChatPage: React.FC = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [showUserModal, setShowUserModal] = useState(false);
   const [userListKey, setUserListKey] = useState(0); // Modalı her açışta UserList'i resetlemek için
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const focusMessageId = params.get('focusMessageId');
 
   // Geçmiş konuşmaları çek
   useEffect(() => {
@@ -141,6 +150,35 @@ const ChatPage: React.FC = () => {
     setUserListKey((k) => k + 1);
   };
 
+  // URL değişince conversationId ve focusMessageId'yi güncelle
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const urlConvId = urlParams.get('conversationId');
+    if (urlConvId && urlConvId !== conversationId) {
+      setConversationId(urlConvId);
+      // Konuşma listesinden ilgili kullanıcıyı bul
+      const conv = conversations.find((c) => c._id === urlConvId);
+      if (conv && user) {
+        const participant = conv.participants.find(
+          (p) => (typeof p === 'string' ? p : p._id) !== user._id
+        );
+        if (participant && typeof participant === 'object') {
+          setSelectedUser({
+            _id: participant._id,
+            username: participant.username || '',
+            email: participant.email || '',
+          });
+        } else if (typeof participant === 'string') {
+          setSelectedUser({
+            _id: participant,
+            username: 'Kullanıcı',
+            email: '',
+          });
+        }
+      }
+    }
+  }, [location.search, conversations, user]);
+
   return (
     <div className="min-h-screen bg-gray-900 flex flex-row">
       {/* Sidebar: Geçmiş konuşmalar */}
@@ -218,13 +256,30 @@ const ChatPage: React.FC = () => {
         </div>
       </div>
       {/* Chat penceresi (orta panel) */}
-      <div className="flex-1 flex items-center justify-center p-4">
+      <div className="flex-1 flex flex-col items-center justify-center p-4">
+        <div className="w-full max-w-2xl flex items-center justify-end gap-2 mb-2">
+          <button
+            className="bg-gray-800 hover:bg-gray-700 text-gray-300 p-2 rounded-full transition-colors"
+            onClick={() => setShowSearchModal(true)}
+            title="Mesajlarda Ara"
+          >
+            <Search className="w-5 h-5" />
+          </button>
+          <button
+            className="bg-gray-800 hover:bg-gray-700 text-gray-300 p-2 rounded-full transition-colors"
+            onClick={() => setShowScheduleModal(true)}
+            title="Zamanlanmış Mesaj Gönder"
+          >
+            <Clock className="w-5 h-5" />
+          </button>
+        </div>
         {selectedUser && user ? (
           <ChatWindow
             conversationId={conversationId}
             currentUserId={user._id}
             otherUser={selectedUser}
             onNewMessage={handleNewMessage}
+            focusMessageId={focusMessageId || undefined}
           />
         ) : (
           <div className="text-gray-400 text-center">
@@ -250,6 +305,23 @@ const ChatPage: React.FC = () => {
             />
           </div>
         </div>
+      )}
+      {/* Modal: Zamanlanmış Mesaj */}
+      {showScheduleModal && user && (
+        <ScheduleMessageModal
+          open={showScheduleModal}
+          onClose={() => setShowScheduleModal(false)}
+          currentUserId={user._id}
+          selectedUser={selectedUser || undefined}
+        />
+      )}
+      {/* Modal: Mesaj Arama */}
+      {showSearchModal && (
+        <MessageSearchModal
+          open={showSearchModal}
+          onClose={() => setShowSearchModal(false)}
+          conversationId={conversationId || undefined}
+        />
       )}
     </div>
   );

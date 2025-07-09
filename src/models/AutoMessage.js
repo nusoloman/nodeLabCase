@@ -7,6 +7,7 @@ const autoMessageSchema = new mongoose.Schema({
   sendDate: { type: Date, required: true },
   isQueued: { type: Boolean, default: false },
   isSent: { type: Boolean, default: false },
+  processing: { type: Boolean, default: false },
 });
 
 module.exports = mongoose.model('AutoMessage', autoMessageSchema);
