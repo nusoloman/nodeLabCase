@@ -18,14 +18,14 @@ const Input: React.FC<InputProps> = ({
   ...props
 }) => {
   return (
-    <div className="space-y-1">
+    <div className="space-y-1 w-full">
       {label && (
         <label className="block text-sm font-medium text-gray-300">
           {label}
         </label>
       )}
 
-      <div className="relative">
+      <div className="relative w-full">
         {icon && (
           <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
             {icon}

@@ -16,7 +16,7 @@ const Header: React.FC = () => {
               <img
                 src="/icon.png"
                 alt="NodeLabCase"
-                className="w-40 h-15 hover:opacity-80 transition-opacity cursor-pointer bg-white rounded-lg p-2"
+                className="w-24 h-12 hover:opacity-80 transition-opacity cursor-pointer bg-white rounded-lg p-2"
               />
             </Link>
             <span className="text-gray-400 hidden sm:block">
