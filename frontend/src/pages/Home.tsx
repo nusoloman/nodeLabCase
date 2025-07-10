@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { useGlobalState } from '../contexts/GlobalStateContext';
 import { Link } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
@@ -16,6 +17,12 @@ import {
 
 const Home: React.FC = () => {
   const { user, logout } = useAuth();
+  const { setActiveConversationId } = useGlobalState();
+
+  // Dashboard'a geldiğimizde active conversation'ı temizle
+  useEffect(() => {
+    setActiveConversationId(null);
+  }, [setActiveConversationId]);
 
   return (
     <div className="min-h-screen bg-gray-900">

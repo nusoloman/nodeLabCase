@@ -5,7 +5,7 @@ import ChatWindow from '../components/chat/ChatWindow';
 import ScheduleMessageModal from '../components/chat/ScheduleMessageModal';
 import MessageSearchModal from '../components/chat/MessageSearchModal';
 import { Clock, Search } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useConversations } from '../hooks/useConversations';
 import { useGlobalState } from '../contexts/GlobalStateContext';
 import { useSocket } from '../contexts/SocketContext';
@@ -50,9 +50,14 @@ const ChatPage: React.FC = () => {
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const params = new URLSearchParams(location.search);
   const focusMessageId = params.get('focusMessageId');
-  const { setActiveConversation, setActiveConversationId } = useGlobalState();
+  const {
+    setActiveConversation,
+    setActiveConversationId,
+    activeConversationId,
+  } = useGlobalState();
   const [conversationsState, setConversationsState] = useState<Conversation[]>(
     []
   );
@@ -117,6 +122,11 @@ const ChatPage: React.FC = () => {
       if (!user) return;
       setConversationId(conv._id);
       setActiveConversation(conv as Conversation);
+      setActiveConversationId(conv._id); // Bunu ekledik!
+
+      // URL'yi güncelle
+      navigate(`?conversationId=${conv._id}`, { replace: true });
+
       const participant = conv.participants.find(
         (p: User) => p._id !== user._id
       );
@@ -130,7 +140,7 @@ const ChatPage: React.FC = () => {
         setSelectedUser({ _id: conv._id, username: 'Kullanıcı', email: '' });
       }
     },
-    [user, setActiveConversation]
+    [user, setActiveConversation, setActiveConversationId, navigate]
   );
 
   // handleUserSelect fonksiyonunu useCallback ile sarmala
@@ -150,9 +160,11 @@ const ChatPage: React.FC = () => {
       if (conv) {
         setConversationId(conv._id);
         setActiveConversation(conv as Conversation);
+        setActiveConversationId(conv._id);
       } else {
         setConversationId(null);
         setActiveConversation(null as unknown as Conversation);
+        setActiveConversationId(null);
       }
       setUserListKey((k) => k + 1);
     },
@@ -163,12 +175,6 @@ const ChatPage: React.FC = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const urlConvId = urlParams.get('conversationId');
-    console.log('URL changed:', {
-      urlConvId,
-      currentConversationId: conversationId,
-      conversationsStateLength: conversationsState.length,
-      conversationsLength: conversations.length,
-    });
 
     if (urlConvId && urlConvId !== conversationId) {
       setConversationId(urlConvId);
@@ -184,14 +190,12 @@ const ChatPage: React.FC = () => {
         );
       }
 
-      console.log('Found conversation:', conv);
-
       if (conv && user) {
         setActiveConversation(conv as Conversation);
+        setActiveConversationId(conv._id);
         const participant = conv.participants.find(
           (p: User) => p._id !== user._id
         );
-        console.log('Found participant:', participant);
 
         if (participant) {
           setSelectedUser({
@@ -223,11 +227,11 @@ const ChatPage: React.FC = () => {
 
     if (
       urlConvId &&
-      !selectedUser &&
-      (conversationsState.length > 0 || conversations.length > 0)
+      (conversationsState.length > 0 || conversations.length > 0) &&
+      (!selectedUser ||
+        !activeConversationId ||
+        activeConversationId !== urlConvId)
     ) {
-      console.log('Checking for conversation after load:', urlConvId);
-
       let conv = conversationsState.find(
         (c: Conversation) => c._id === urlConvId
       );
@@ -238,15 +242,13 @@ const ChatPage: React.FC = () => {
         );
       }
 
-      console.log('Found conversation after load:', conv);
-
       if (conv && user) {
         setConversationId(urlConvId);
         setActiveConversation(conv as Conversation);
+        setActiveConversationId(urlConvId);
         const participant = conv.participants.find(
           (p: User) => p._id !== user._id
         );
-        console.log('Found participant after load:', participant);
 
         if (participant) {
           setSelectedUser({
@@ -263,14 +265,20 @@ const ChatPage: React.FC = () => {
         }
       }
     }
-  }, [conversationsState, conversations, user, selectedUser]);
+  }, [
+    conversationsState,
+    conversations,
+    user,
+    selectedUser,
+    activeConversationId,
+  ]);
 
   // conversationId değiştiğinde global state'i güncelle
   useEffect(() => {
     setActiveConversationId(conversationId);
   }, [conversationId, setActiveConversationId]);
 
-  const { socket } = useSocket();
+  const { socket, status, reconnect, connectionError } = useSocket();
 
   // WebSocket ile gerçek zamanlı konuşma listesi güncelleme
   useEffect(() => {
@@ -364,6 +372,45 @@ const ChatPage: React.FC = () => {
           >
             + Yeni Sohbet
           </button>
+        </div>
+
+        {/* WebSocket Bağlantı Durumu */}
+        <div className="mb-4 p-2 rounded-lg bg-gray-800 border">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div
+                className={`w-3 h-3 rounded-full ${
+                  status === 'connected'
+                    ? 'bg-green-500'
+                    : status === 'reconnecting'
+                    ? 'bg-yellow-500'
+                    : status === 'error'
+                    ? 'bg-red-500'
+                    : 'bg-gray-500'
+                }`}
+              ></div>
+              <span className="text-sm text-gray-300">
+                {status === 'connected'
+                  ? 'Çevrimiçi'
+                  : status === 'reconnecting'
+                  ? 'Yeniden bağlanıyor...'
+                  : status === 'error'
+                  ? 'Bağlantı hatası'
+                  : 'Bağlantı yok'}
+              </span>
+            </div>
+            {status === 'error' && (
+              <button
+                onClick={reconnect}
+                className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded"
+              >
+                Yeniden Bağlan
+              </button>
+            )}
+          </div>
+          {connectionError && (
+            <div className="text-xs text-red-400 mt-1">{connectionError}</div>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto space-y-2">
           {convLoading ? (

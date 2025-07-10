@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSocket } from '../contexts/SocketContext';
 import { useAuth } from '../hooks/useAuth';
 import { useGlobalState } from '../contexts/GlobalStateContext';
@@ -11,6 +11,7 @@ interface MessageData {
         _id: string;
         username?: string;
         email?: string;
+        avatarUrl?: string;
       }
     | string;
   receiver: string;
@@ -20,9 +21,10 @@ interface MessageData {
 }
 
 const GlobalSocketToastListener = () => {
-  const { socket } = useSocket();
+  const { socket, status } = useSocket();
   const { user } = useAuth();
   const { activeConversationId } = useGlobalState();
+  const activeConversationIdRef = useRef(activeConversationId);
   const [toast, setToast] = useState<null | {
     avatarUrl?: string;
     username: string;
@@ -31,24 +33,25 @@ const GlobalSocketToastListener = () => {
     conversationId?: string;
   }>(null);
 
+  // activeConversationId'yi ref'te güncelle
   useEffect(() => {
-    if (!socket || !user) {
+    activeConversationIdRef.current = activeConversationId;
+  }, [activeConversationId]);
+
+  useEffect(() => {
+    if (!socket || !user || status !== 'connected') {
       return;
     }
 
     const handleMessageReceived = (msg: MessageData) => {
-      const receiverId =
-        typeof msg.receiver === 'object' ? msg.receiver._id : msg.receiver;
+      const receiverId = msg.receiver;
 
       // Sadece bu kullanıcıya gelen mesajlar için bildirim göster
       if (receiverId === user._id) {
-        const msgConversationId =
-          typeof msg.conversation === 'string'
-            ? msg.conversation
-            : msg.conversation?._id;
+        const msgConversationId = msg.conversation;
 
         // Eğer kullanıcı zaten o konuşmanın içindeyse toast gösterme
-        if (activeConversationId === msgConversationId) {
+        if (activeConversationIdRef.current === msgConversationId) {
           return;
         }
 
@@ -69,7 +72,7 @@ const GlobalSocketToastListener = () => {
     return () => {
       socket.off('message_received', handleMessageReceived);
     };
-  }, [socket, user, activeConversationId]);
+  }, [socket, user, status]); // activeConversationId'yi dependency'den çıkardık
 
   useEffect(() => {
     if (toast && toast.messageId) {
