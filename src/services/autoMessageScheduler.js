@@ -24,20 +24,37 @@ const randomMessages = [
   'Gülümsemeyi unutma!',
 ];
 
-cron.schedule('* * * * *', async () => {
+// Her gece saat 02:00'de çalışacak şekilde cron ayarla
+cron.schedule('0 2 * * *', async () => {
   try {
-    const now = new Date();
-    const messages = await AutoMessage.find({
-      sendDate: { $lte: now },
-      isQueued: false,
-    });
+    // 1. Tüm kullanıcıları çek
+    const users = await User.find({});
+    if (users.length < 2) return; // Eşleşecek yeterli kullanıcı yok
 
-    for (const msg of messages) {
-      await rabbitmqService.sendToQueue(msg);
-      msg.isQueued = true;
-      await msg.save();
+    // 2. Kullanıcıları karıştır ve rastgele eşleştir
+    const shuffled = shuffle([...users]);
+    for (let i = 0; i < shuffled.length - 1; i += 2) {
+      const from = shuffled[i]._id;
+      const to = shuffled[i + 1]._id;
+      // 3. Rastgele mesaj seç
+      const content =
+        randomMessages[Math.floor(Math.random() * randomMessages.length)];
+      // 4. AutoMessage kaydet
+      const autoMsg = await AutoMessage.create({
+        from,
+        to,
+        content,
+        sendDate: new Date(),
+        isQueued: false,
+        isSent: false,
+      });
+      // 5. RabbitMQ kuyruğuna ekle
+      await rabbitmqService.sendToQueue(autoMsg);
+      autoMsg.isQueued = true;
+      await autoMsg.save();
     }
+    // Eğer tek sayıda kullanıcı varsa son kullanıcı eşleşmeden kalır
   } catch (err) {
-    console.error('AutoMessage queue cronjob error:', err);
+    console.error('AutoMessage cronjob error:', err);
   }
 });

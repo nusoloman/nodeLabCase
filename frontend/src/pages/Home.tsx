@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useGlobalState } from '../contexts/GlobalStateContext';
 import { Link } from 'react-router-dom';
@@ -10,11 +10,212 @@ import {
   ShieldCheck,
   Mail,
   MessageCircle,
+  X as CloseIcon,
 } from 'lucide-react';
+
+type DemoUser = { _id: string; username: string; email: string };
+type Pair = { from: DemoUser; to: DemoUser; content: string };
+
+const ShuffleModal: React.FC<{ open: boolean; onClose: () => void }> = ({
+  open,
+  onClose,
+}) => {
+  const [users, setUsers] = useState<DemoUser[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [pairs, setPairs] = useState<Pair[]>([]);
+  const [unpaired, setUnpaired] = useState<DemoUser | null>(null);
+  const [showResults, setShowResults] = useState(false);
+  const [sendResult, setSendResult] = useState<any[] | null>(null);
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setShowResults(false);
+      setPairs([]);
+      setUnpaired(null);
+      setUsers([]);
+      setLoading(true);
+      fetch('/api/user/list', {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+        },
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          setUsers(data.users || []);
+        })
+        .finally(() => setLoading(false));
+    }
+  }, [open]);
+
+  const handleShuffle = () => {
+    setLoading(true);
+    fetch('/api/user/shuffle-demo', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+        'Content-Type': 'application/json',
+      },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setPairs(data.pairs || []);
+        setUnpaired(data.unpaired || null);
+        setShowResults(true);
+      })
+      .finally(() => setLoading(false));
+  };
+
+  const handleSendMessages = () => {
+    setSending(true);
+    setSendResult(null);
+    fetch('/api/user/shuffle-send', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ pairs }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setSendResult(data.results || []);
+      })
+      .finally(() => setSending(false));
+  };
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+      <div className="bg-gray-900 rounded-xl shadow-lg max-w-2xl w-full p-6 relative">
+        <button
+          className="absolute top-4 right-4 text-gray-400 hover:text-white"
+          onClick={onClose}
+        >
+          <CloseIcon className="w-6 h-6" />
+        </button>
+        <h2 className="text-2xl font-bold text-white mb-4">
+          Kullanıcı Shuffle (Demo)
+        </h2>
+        {loading ? (
+          <div className="text-gray-300">Kullanıcılar yükleniyor...</div>
+        ) : (
+          <>
+            <div className="mb-4">
+              <div className="flex flex-wrap gap-2">
+                {users.map((u) => (
+                  <span
+                    key={u._id}
+                    className="bg-gray-700 text-white px-3 py-1 rounded-full text-sm"
+                  >
+                    {u.username}
+                  </span>
+                ))}
+              </div>
+            </div>
+            {!showResults ? (
+              <button
+                className="w-full bg-gradient-to-r from-orange-500 to-yellow-400 hover:from-orange-600 hover:to-yellow-500 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                onClick={handleShuffle}
+                disabled={users.length < 2}
+              >
+                Eşleştir ve Mesajları Göster
+              </button>
+            ) : (
+              <div className="mt-6">
+                <h3 className="text-lg font-semibold text-white mb-2">
+                  Eşleşmeler
+                </h3>
+                <div className="space-y-3">
+                  {pairs.map((pair, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-gray-800 rounded-lg p-4 flex flex-col md:flex-row md:items-center md:justify-between"
+                    >
+                      <div className="flex items-center gap-2 mb-2 md:mb-0">
+                        <User className="w-5 h-5 text-blue-400" />
+                        <span className="text-white font-medium">
+                          {pair.from.username}
+                        </span>
+                        <span className="text-gray-400">→</span>
+                        <User className="w-5 h-5 text-purple-400" />
+                        <span className="text-white font-medium">
+                          {pair.to.username}
+                        </span>
+                      </div>
+                      <div className="text-orange-300 font-semibold text-sm mt-2 md:mt-0">
+                        "{pair.content}"
+                      </div>
+                    </div>
+                  ))}
+                  {unpaired && (
+                    <div className="bg-gray-800 rounded-lg p-4 flex items-center gap-2 mt-2">
+                      <User className="w-5 h-5 text-gray-400" />
+                      <span className="text-white font-medium">
+                        {unpaired.username}
+                      </span>
+                      <span className="text-gray-400">eşleşmeden kaldı</span>
+                    </div>
+                  )}
+                </div>
+                {/* Mesajları Gönder ve Tekrar Karıştır Butonları */}
+                <div className="w-full flex flex-col md:flex-row gap-2 mt-6">
+                  <button
+                    className="flex-1 bg-gradient-to-r from-orange-500 to-yellow-400 hover:from-orange-600 hover:to-yellow-500 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                    onClick={() => {
+                      handleShuffle();
+                      setSendResult(null);
+                    }}
+                    disabled={loading}
+                  >
+                    Tekrar Karıştır
+                  </button>
+                  <button
+                    className="flex-1 bg-gradient-to-r from-green-600 to-teal-500 hover:from-green-700 hover:to-teal-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={handleSendMessages}
+                    disabled={pairs.length === 0 || sending}
+                  >
+                    {sending ? 'Gönderiliyor...' : 'Mesajları Gönder'}
+                  </button>
+                </div>
+                {/* Sonuç Gösterimi */}
+                {sendResult && (
+                  <div className="mt-4">
+                    <h4 className="text-md font-semibold text-white mb-2">
+                      Gönderim Sonucu
+                    </h4>
+                    <ul className="space-y-2">
+                      {sendResult.map((res, i) => (
+                        <li key={i} className="text-sm text-gray-200">
+                          {res.pair.from.username} → {res.pair.to.username}: "
+                          {res.pair.content}"{' '}
+                          <span
+                            className={
+                              res.status === 'queued'
+                                ? 'text-green-400'
+                                : 'text-red-400'
+                            }
+                          >
+                            [{res.status}]
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const Home: React.FC = () => {
   const { user } = useAuth();
   const { setActiveConversationId } = useGlobalState();
+  const [showShuffleModal, setShowShuffleModal] = useState(false);
 
   // Dashboard'a geldiğimizde active conversation'ı temizle
   useEffect(() => {
@@ -73,6 +274,14 @@ const Home: React.FC = () => {
                     <MessageCircle className="w-4 h-4 inline mr-1" /> Sohbet
                     Başlat
                   </Link>
+                  {/* Shuffle Button */}
+                  <button
+                    type="button"
+                    className="block w-full bg-gradient-to-r from-orange-500 to-yellow-400 hover:from-orange-600 hover:to-yellow-500 text-white text-center py-3 px-4 rounded-lg font-semibold transition-colors mb-2"
+                    onClick={() => setShowShuffleModal(true)}
+                  >
+                    Shuffle (Demo)
+                  </button>
                   <Link
                     to="/settings"
                     className="block w-full bg-gradient-to-r from-gray-600 to-gray-500 hover:from-gray-700 hover:to-gray-600 text-white text-center py-3 px-4 rounded-lg font-semibold transition-colors"
@@ -82,6 +291,12 @@ const Home: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* Shuffle Modal */}
+            <ShuffleModal
+              open={showShuffleModal}
+              onClose={() => setShowShuffleModal(false)}
+            />
 
             {/* System Status */}
             <div className="mt-10 pt-6 border-t border-gray-700">

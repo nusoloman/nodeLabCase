@@ -65,4 +65,10 @@ router.patch('/profile', authMiddleware, userController.updateProfile);
 // Şifre değiştirme endpointi
 router.post('/change-password', authMiddleware, userController.changePassword);
 
+// Shuffle demo endpointi (eşleştirme ve random mesaj üretimi, DB'ye yazmaz)
+router.post('/shuffle-demo', authMiddleware, userController.shuffleDemo);
+
+// Shuffle send endpointi (eşleşmeleri DB'ye kaydeder ve RabbitMQ'ya yollar)
+router.post('/shuffle-send', authMiddleware, userController.shuffleSend);
+
 module.exports = router;
