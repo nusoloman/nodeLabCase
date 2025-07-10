@@ -22,6 +22,7 @@ interface ChatWindowProps {
   currentUserId: string;
   otherUser: { _id: string; username: string; avatarUrl?: string };
   focusMessageId?: string;
+  focusMessagePage?: number;
   onNewMessage?: (conversationId: string, message: string) => void;
   onNewConversation?: (conversationId: string, message: Message) => void;
 }
@@ -31,6 +32,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   currentUserId,
   otherUser,
   focusMessageId,
+  focusMessagePage,
   onNewMessage,
   onNewConversation,
 }) => {
@@ -44,7 +46,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     addMessage,
     updateMessage,
     loadMoreMessages,
-  } = useMessageHistory(conversationId, currentUserId);
+    loadMessagesAtPage,
+  } = useMessageHistory(
+    conversationId,
+    currentUserId,
+    focusMessagePage,
+    Boolean(focusMessagePage), // forceLoadAllToPage: arama ile gelindiyse true
+    focusMessageId // aranan mesajın id'si
+  );
   const [isOtherTyping, setIsOtherTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -197,7 +206,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         pagination?.hasNextPage &&
         !loadingMore
       ) {
-        console.log('Triggering loadMoreMessages');
         loadMoreMessages();
       }
     };
@@ -240,6 +248,37 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     }
   }, [focusMessageId, messages]);
 
+  // focusMessagePage ile aranan mesajı yükle ve focusla
+  useEffect(() => {
+    if (focusMessagePage && loadMessagesAtPage && focusMessageId) {
+      // Eğer focusMessageId yüklü değilse, ilgili sayfayı yükle
+      const isLoaded = messages.some((msg) => msg._id === focusMessageId);
+      if (!isLoaded) {
+        loadMessagesAtPage(focusMessagePage).then(() => {
+          setTimeout(() => {
+            if (messageRefs.current[focusMessageId]) {
+              messageRefs.current[focusMessageId]?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+              });
+              messageRefs.current[focusMessageId]?.classList.add(
+                'ring-2',
+                'ring-purple-500'
+              );
+              setTimeout(() => {
+                messageRefs.current[focusMessageId]?.classList.remove(
+                  'ring-2',
+                  'ring-purple-500'
+                );
+              }, 2000);
+            }
+          }, 300);
+        });
+      }
+    }
+    // eslint-disable-next-line
+  }, [focusMessagePage, focusMessageId]);
+
   // window'dan focusMessage eventini dinle
   useEffect(() => {
     const handler = (e: CustomEvent<{ messageId: string }>) => {
@@ -262,6 +301,36 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     return () =>
       window.removeEventListener('focusMessage', handler as EventListener);
   }, [messages]);
+
+  // Arama ile gelindiyse ve aranan mesaj yüklü değilse, otomatik olarak loadMoreMessages zinciri başlat
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadUntilFound() {
+      if (!focusMessageId || !focusMessagePage) return;
+      let found = messages.some((msg) => msg._id === focusMessageId);
+      let tries = 0;
+      while (!found && pagination?.hasNextPage && !cancelled) {
+        await loadMoreMessages();
+        found = messages.some((msg) => msg._id === focusMessageId);
+        tries++;
+        if (tries > 20) {
+          break;
+        }
+      }
+    }
+    if (
+      focusMessageId &&
+      focusMessagePage &&
+      !messages.some((msg) => msg._id === focusMessageId)
+    ) {
+      loadUntilFound();
+    }
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line
+  }, [focusMessageId, focusMessagePage, messages, pagination?.hasNextPage]);
 
   // Otomatik delivered işaretlemeyi kaldırdık - sadece toast gösterildiğinde olacak
 

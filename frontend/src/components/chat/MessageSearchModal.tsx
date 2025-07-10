@@ -11,6 +11,7 @@ interface MessageResult {
   receiver: string | { _id: string; username?: string };
   conversation: string;
   createdAt: string;
+  page: number; // Required yap
 }
 
 interface Props {
@@ -64,32 +65,33 @@ const MessageSearchModal: React.FC<Props> = ({
   const handleResultClick = (msg: MessageResult) => {
     onClose();
     setTimeout(() => {
-      if (conversationId) {
-        // Sadece focus olacak, navigate yok
-        window.dispatchEvent(
-          new CustomEvent('focusMessage', { detail: { messageId: msg.id } })
-        );
-      } else {
-        navigate(
-          `/chat?conversationId=${msg.conversation}&focusMessageId=${msg.id}`
-        );
-      }
+      // page varsa URL'ye ekle
+      const pageParam =
+        msg.page !== undefined ? `&focusMessagePage=${msg.page}` : '';
+      navigate(
+        `/chat?conversationId=${msg.conversation}&focusMessageId=${msg.id}${pageParam}`
+      );
     }, 100);
   };
 
   return (
     <Modal open={open} onClose={onClose} className="w-full max-w-2xl mx-4">
       <h2 className="text-xl font-bold text-white mb-4">Mesajlarda Ara</h2>
-      <form onSubmit={handleSearch} className="flex gap-2 mb-4">
+      <form onSubmit={handleSearch} className="flex gap-2 mb-4 w-full">
         <Input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Kelime veya cümle..."
           required
-          className="flex-1"
+          className="flex-1 min-w-0"
         />
-        <Button type="submit" variant="primary" loading={loading}>
+        <Button
+          type="submit"
+          variant="primary"
+          loading={loading}
+          className="w-32"
+        >
           Ara
         </Button>
       </form>
@@ -101,11 +103,9 @@ const MessageSearchModal: React.FC<Props> = ({
         {results.map((msg) => {
           // sender ve receiver username'i resolve et
           const senderName =
-            typeof msg.sender === 'object' ? msg.sender.username : msg.sender;
+            typeof msg.sender === 'object' ? msg.sender.username || '' : '';
           const receiverName =
-            typeof msg.receiver === 'object'
-              ? msg.receiver.username
-              : msg.receiver;
+            typeof msg.receiver === 'object' ? msg.receiver.username || '' : '';
           return (
             <div
               key={msg.id}

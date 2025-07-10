@@ -180,7 +180,11 @@ const Profile: React.FC = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <form className="space-y-6" onSubmit={handleSave}>
+              <form
+                className="space-y-6"
+                onSubmit={handleSave}
+                id="profile-form"
+              >
                 <div className="space-y-4">
                   <div>
                     <label className="block text-gray-400 mb-1">
@@ -205,14 +209,7 @@ const Profile: React.FC = () => {
                     />
                   </div>
                 </div>
-                <div className="flex items-center space-x-4">
-                  <Button type="submit" variant="primary" loading={saving}>
-                    Kaydet
-                  </Button>
-                  {error && (
-                    <span className="text-red-400 text-sm">{error}</span>
-                  )}
-                </div>
+                {error && <span className="text-red-400 text-sm">{error}</span>}
               </form>
               <div className="mt-8 space-y-2">
                 <div className="flex items-center space-x-3">
@@ -221,12 +218,6 @@ const Profile: React.FC = () => {
                     Kayıt:{' '}
                     {profile &&
                       new Date(profile.createdAt).toLocaleString('tr-TR')}
-                  </span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <span className="text-xs text-gray-500">ID:</span>
-                  <span className="font-mono text-xs text-gray-400">
-                    {profile?._id}
                   </span>
                 </div>
               </div>
@@ -239,8 +230,13 @@ const Profile: React.FC = () => {
                 >
                   Geri Dön
                 </Button>
-                <Button variant="danger" onClick={logout}>
-                  <LogOut className="w-4 h-4 mr-2" /> Çıkış Yap
+                <Button
+                  type="submit"
+                  variant="primary"
+                  loading={saving}
+                  form="profile-form"
+                >
+                  Kaydet
                 </Button>
               </div>
             </CardFooter>

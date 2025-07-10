@@ -53,6 +53,7 @@ const ChatPage: React.FC = () => {
   const navigate = useNavigate();
   const params = new URLSearchParams(location.search);
   const focusMessageId = params.get('focusMessageId');
+  const focusMessagePage = params.get('focusMessagePage');
   const {
     setActiveConversation,
     setActiveConversationId,
@@ -540,6 +541,11 @@ const ChatPage: React.FC = () => {
             currentUserId={user._id}
             otherUser={selectedUser}
             focusMessageId={focusMessageId || undefined}
+            focusMessagePage={
+              focusMessagePage !== null && focusMessagePage !== undefined
+                ? Number(focusMessagePage)
+                : undefined
+            }
             onNewMessage={handleNewMessage}
             onNewConversation={handleNewConversation}
           />

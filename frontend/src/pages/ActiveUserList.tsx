@@ -1,13 +1,63 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Home as HomeIcon, LogOut, Users } from 'lucide-react';
+import {
+  Home as HomeIcon,
+  LogOut,
+  Users,
+  Circle,
+  Mail,
+  Search,
+} from 'lucide-react';
 import Button from '../components/ui/Button';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
-import OnlineUserList from '../components/OnlineUserList';
+// import OnlineUserList from '../components/OnlineUserList';
+import Input from '../components/ui/Input';
+import { useState } from 'react';
+import { API_URL } from '../config';
+
+interface User {
+  _id: string;
+  username: string;
+  email: string;
+  avatarUrl?: string;
+}
 
 const ActiveUserList: React.FC = () => {
   const { user, logout } = useAuth();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  React.useEffect(() => {
+    const fetchOnlineUsers = async () => {
+      setLoading(true);
+      try {
+        const accessToken = localStorage.getItem('accessToken');
+        const res = await fetch(`${API_URL}/online-users`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        const data = await res.json();
+        setUsers(data.users || data);
+      } catch {
+        setError('Online kullanıcılar alınamadı.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchOnlineUsers();
+  }, []);
+
+  let filteredUsers = users;
+  filteredUsers = filteredUsers.filter(
+    (u) =>
+      u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="min-h-screen bg-gray-900">
@@ -63,7 +113,51 @@ const ActiveUserList: React.FC = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <OnlineUserList />
+            <div className="flex items-center justify-between mb-6">
+              <Input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                icon={<Search />}
+                placeholder="Kullanıcı adı veya email ile ara..."
+                className="bg-gray-700 flex-1 mr-3"
+              />
+            </div>
+            {loading ? (
+              <div className="flex items-center justify-center min-h-[120px]">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+              </div>
+            ) : error ? (
+              <div className="text-red-400 text-center">{error}</div>
+            ) : (
+              <div className="space-y-3">
+                {filteredUsers.map((user) => (
+                  <div
+                    key={user._id}
+                    className={`flex items-center bg-gray-800 rounded-lg p-4 border border-gray-700 transition-all hover:bg-gray-700`}
+                  >
+                    <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-lg mr-4">
+                      <Users className="w-6 h-6" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-white">
+                        {user.username}
+                      </h3>
+                      <div className="flex items-center space-x-2 text-gray-400 text-sm">
+                        <Mail className="w-4 h-4" />
+                        <span>{user.email}</span>
+                      </div>
+                    </div>
+                    <div className="ml-4 flex items-center">
+                      <Circle
+                        className="w-4 h-4 text-green-400"
+                        fill="#22c55e"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

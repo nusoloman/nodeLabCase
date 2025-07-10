@@ -253,12 +253,7 @@ const UserList: React.FC<UserListProps> = React.memo(
                         <span>{user.email}</span>
                       </div>
                     </div>
-                    <div className="text-right ml-4">
-                      <span className="text-xs text-gray-500">ID</span>
-                      <div className="font-mono text-xs text-gray-400">
-                        {user._id.substring(0, 8)}...
-                      </div>
-                    </div>
+                    {/* ID gösterimi kaldırıldı */}
                   </div>
                 ))}
               </div>

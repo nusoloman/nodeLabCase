@@ -44,13 +44,20 @@ async function indexMessage(message) {
   });
 }
 
-async function searchMessages(query) {
-  const { hits } = await esClient.search({
+// searchMessages fonksiyonu opsiyonel conversationId parametresi alacak şekilde güncellendi
+async function searchMessages(query, conversationId) {
+  const esQuery = {
     index: MESSAGE_INDEX,
     query: {
-      match: { content: query },
+      bool: {
+        must: [{ match: { content: query } }],
+      },
     },
-  });
+  };
+  if (conversationId) {
+    esQuery.query.bool.filter = [{ term: { conversation: conversationId } }];
+  }
+  const { hits } = await esClient.search(esQuery);
   return hits.hits.map((hit) => ({ id: hit._id, ...hit._source }));
 }
 

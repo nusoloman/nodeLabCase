@@ -55,17 +55,14 @@ async function history(req, res) {
 
     // Mesajları getir (en yeni mesajlar en altta olacak şekilde)
     const messages = await Message.find({ conversation: conversationId })
-      .sort({ createdAt: -1 }) // En yeni mesajlar önce
+      .sort({ createdAt: 1 }) // En eski mesajlar önce
       .skip(skip)
       .limit(limit)
       .populate('sender', 'username email')
       .populate('receiver', 'username email');
 
-    // Mesajları tersine çevir (en eski mesajlar önce)
-    const reversedMessages = messages.reverse();
-
     res.json({
-      messages: reversedMessages,
+      messages,
       pagination: {
         currentPage: page,
         totalPages,
