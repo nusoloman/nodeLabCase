@@ -107,6 +107,15 @@ cd frontend
 npm run dev
 ```
 
+> **Not:** Eğer kurulum veya çalıştırma sırasında node sürümüyle ilgili hata alırsanız, aşağıdaki komutlarla nvm kullanarak Node.js v20+ sürümüne geçiş yapabilirsiniz:
+>
+> ```bash
+> nvm install 20
+> nvm use 20
+> ```
+>
+> Proje Node.js 20 ve üzeri sürümlerde sorunsuz çalışır.
+
 ### 6. Swagger API Dokümantasyonu
 
 - [http://localhost:3000/api-docs](http://localhost:3000/api-docs) adresinden API endpoint'lerini ve dökümantasyonu inceleyebilirsin.
