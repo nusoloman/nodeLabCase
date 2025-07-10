@@ -6,6 +6,7 @@ import { GlobalStateProvider } from './contexts/GlobalStateContext';
 import GlobalSocketToastListener from './components/GlobalSocketToastListener';
 import { AuthProvider } from './contexts/AuthContext';
 import { BrowserRouter } from 'react-router-dom';
+import Header from './components/Header';
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
             <GlobalStateProvider>
               <Toast />
               <GlobalSocketToastListener />
+              <Header />
               <AppRouter />
             </GlobalStateProvider>
           </NotificationProvider>

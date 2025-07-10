@@ -557,15 +557,25 @@ const ChatPage: React.FC = () => {
       </div>
       {/* Modal: Yeni sohbet başlat */}
       {showUserModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-          <div className="bg-gray-900 rounded-xl shadow-lg p-6 w-full max-w-md relative">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50 px-2"
+          onClick={() => setShowUserModal(false)}
+        >
+          <div
+            className="w-full max-w-3xl mx-auto bg-gray-900 rounded-2xl shadow-2xl p-8 relative animate-fade-in"
+            style={{ minWidth: '320px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
-              className="absolute top-2 right-2 text-gray-400 hover:text-white text-xl"
+              className="absolute top-3 right-3 text-gray-400 hover:text-white text-2xl focus:outline-none"
               onClick={() => setShowUserModal(false)}
+              aria-label="Kapat"
             >
               ×
             </button>
-            <h3 className="text-lg font-bold text-white mb-4">Kullanıcı Seç</h3>
+            <h3 className="text-xl font-bold text-white mb-6">
+              Yeni Sohbet Başlat
+            </h3>
             <UserList
               key={userListKey}
               onUserSelect={handleUserSelect}

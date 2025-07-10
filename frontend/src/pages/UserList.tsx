@@ -1,18 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { Link } from 'react-router-dom';
 import Input from '../components/ui/Input';
-import {
-  User as UserIcon,
-  Mail,
-  Search,
-  MessageCircle,
-  Home as HomeIcon,
-  LogOut,
-  Users,
-} from 'lucide-react';
+import { User as UserIcon, Mail, Search, Users } from 'lucide-react';
 import { useUserList } from '../hooks/useUserList';
-import Button from '../components/ui/Button';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
 
 interface User {
@@ -30,7 +20,7 @@ interface UserListProps {
 
 const UserList: React.FC<UserListProps> = React.memo(
   ({ onUserSelect, selectedUserId, excludeCurrentUser = false }) => {
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
     const { users, loading, error } = useUserList();
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -55,47 +45,6 @@ const UserList: React.FC<UserListProps> = React.memo(
     if (loading) {
       return (
         <div className="min-h-screen bg-gray-900">
-          {/* Navigation */}
-          <nav className="bg-gray-800 shadow-lg">
-            <div className="max-w-6xl mx-auto px-4">
-              <div className="flex justify-between items-center py-4">
-                <div className="flex items-center space-x-4">
-                  <Link to="/">
-                    <HomeIcon className="w-7 h-7 text-purple-400 hover:text-purple-300 transition-colors cursor-pointer" />
-                  </Link>
-                  <span className="text-2xl font-bold text-white">
-                    NodeLabCase
-                  </span>
-                  <span className="text-gray-400 hidden sm:block">
-                    Hoş geldin,{' '}
-                    <span className="font-semibold text-white">
-                      {user?.username}
-                    </span>
-                    !
-                  </span>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <div className="flex space-x-2">
-                    <Link
-                      to="/profile"
-                      className="text-gray-300 hover:text-white px-3 py-2 rounded transition-colors"
-                    >
-                      Profil
-                    </Link>
-                    <Link
-                      to="/users"
-                      className="text-gray-300 hover:text-white px-3 py-2 rounded transition-colors"
-                    >
-                      Kullanıcı Listesi
-                    </Link>
-                  </div>
-                  <Button variant="danger" size="sm" onClick={logout}>
-                    <LogOut className="w-4 h-4 mr-1" /> Çıkış
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </nav>
           <div className="flex items-center justify-center min-h-screen">
             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-500"></div>
           </div>
@@ -106,47 +55,6 @@ const UserList: React.FC<UserListProps> = React.memo(
     if (error) {
       return (
         <div className="min-h-screen bg-gray-900">
-          {/* Navigation */}
-          <nav className="bg-gray-800 shadow-lg">
-            <div className="max-w-6xl mx-auto px-4">
-              <div className="flex justify-between items-center py-4">
-                <div className="flex items-center space-x-4">
-                  <Link to="/">
-                    <HomeIcon className="w-7 h-7 text-purple-400 hover:text-purple-300 transition-colors cursor-pointer" />
-                  </Link>
-                  <span className="text-2xl font-bold text-white">
-                    NodeLabCase
-                  </span>
-                  <span className="text-gray-400 hidden sm:block">
-                    Hoş geldin,{' '}
-                    <span className="font-semibold text-white">
-                      {user?.username}
-                    </span>
-                    !
-                  </span>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <div className="flex space-x-2">
-                    <Link
-                      to="/profile"
-                      className="text-gray-300 hover:text-white px-3 py-2 rounded transition-colors"
-                    >
-                      Profil
-                    </Link>
-                    <Link
-                      to="/users"
-                      className="text-gray-300 hover:text-white px-3 py-2 rounded transition-colors"
-                    >
-                      Kullanıcı Listesi
-                    </Link>
-                  </div>
-                  <Button variant="danger" size="sm" onClick={logout}>
-                    <LogOut className="w-4 h-4 mr-1" /> Çıkış
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </nav>
           <div className="flex items-center justify-center min-h-screen">
             <div className="text-red-400 text-center">
               <p className="text-xl mb-4">Hata</p>
@@ -159,48 +67,6 @@ const UserList: React.FC<UserListProps> = React.memo(
 
     return (
       <div className="min-h-screen bg-gray-900">
-        {/* Navigation */}
-        <nav className="bg-gray-800 shadow-lg">
-          <div className="max-w-6xl mx-auto px-4">
-            <div className="flex justify-between items-center py-4">
-              <div className="flex items-center space-x-4">
-                <Link to="/">
-                  <HomeIcon className="w-7 h-7 text-purple-400 hover:text-purple-300 transition-colors cursor-pointer" />
-                </Link>
-                <span className="text-2xl font-bold text-white">
-                  NodeLabCase
-                </span>
-                <span className="text-gray-400 hidden sm:block">
-                  Hoş geldin,{' '}
-                  <span className="font-semibold text-white">
-                    {user?.username}
-                  </span>
-                  !
-                </span>
-              </div>
-              <div className="flex items-center space-x-4">
-                <div className="flex space-x-2">
-                  <Link
-                    to="/profile"
-                    className="text-gray-300 hover:text-white px-3 py-2 rounded transition-colors"
-                  >
-                    Profil
-                  </Link>
-                  <Link
-                    to="/users"
-                    className="text-gray-300 hover:text-white px-3 py-2 rounded transition-colors"
-                  >
-                    Kullanıcı Listesi
-                  </Link>
-                </div>
-                <Button variant="danger" size="sm" onClick={logout}>
-                  <LogOut className="w-4 h-4 mr-1" /> Çıkış
-                </Button>
-              </div>
-            </div>
-          </div>
-        </nav>
-
         {/* Main Content */}
         <div className="max-w-4xl mx-auto px-4 py-12">
           <Card>
@@ -220,15 +86,8 @@ const UserList: React.FC<UserListProps> = React.memo(
                   onChange={(e) => setSearchTerm(e.target.value)}
                   icon={<Search />}
                   placeholder="Kullanıcı adı veya email ile ara..."
-                  className="bg-gray-700 flex-1 mr-3"
+                  className="bg-gray-700 flex-1"
                 />
-                <Link
-                  to="/chat"
-                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md transition-colors flex items-center"
-                >
-                  <MessageCircle className="w-4 h-4 mr-1" />
-                  Sohbet
-                </Link>
               </div>
               <div className="space-y-3">
                 {filteredUsers.map((user) => (

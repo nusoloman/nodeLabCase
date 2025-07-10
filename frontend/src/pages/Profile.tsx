@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { API_URL } from '../config';
-import { Link } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import {
   Card,
@@ -9,13 +8,7 @@ import {
   CardContent,
   CardFooter,
 } from '../components/ui/Card';
-import {
-  User,
-  Calendar,
-  RefreshCcw,
-  LogOut,
-  Home as HomeIcon,
-} from 'lucide-react';
+import { User, Calendar, RefreshCcw } from 'lucide-react';
 import { updateProfile } from '../api';
 import { useNotification } from '../contexts/NotificationContext';
 
@@ -28,7 +21,7 @@ interface UserProfile {
 }
 
 const Profile: React.FC = () => {
-  const { user, logout, setUser } = useAuth();
+  const { logout, setUser } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -124,46 +117,6 @@ const Profile: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-900">
-      {/* Navigation */}
-      <nav className="bg-gray-800 shadow-lg">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <Link to="/">
-                <HomeIcon className="w-7 h-7 text-purple-400 hover:text-purple-300 transition-colors cursor-pointer" />
-              </Link>
-              <span className="text-2xl font-bold text-white">NodeLabCase</span>
-              <span className="text-gray-400 hidden sm:block">
-                Hoş geldin,{' '}
-                <span className="font-semibold text-white">
-                  {user?.username}
-                </span>
-                !
-              </span>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex space-x-2">
-                <Link
-                  to="/profile"
-                  className="text-gray-300 hover:text-white px-3 py-2 rounded transition-colors"
-                >
-                  Profil
-                </Link>
-                <Link
-                  to="/users"
-                  className="text-gray-300 hover:text-white px-3 py-2 rounded transition-colors"
-                >
-                  Kullanıcı Listesi
-                </Link>
-              </div>
-              <Button variant="danger" size="sm" onClick={logout}>
-                <LogOut className="w-4 h-4 mr-1" /> Çıkış
-              </Button>
-            </div>
-          </div>
-        </div>
-      </nav>
-
       {/* Main Content */}
       <div className="flex items-center justify-center px-4 py-8">
         <div className="max-w-xl w-full">
