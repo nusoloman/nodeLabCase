@@ -2,8 +2,18 @@ import React, { useState, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { Link } from 'react-router-dom';
 import Input from '../components/ui/Input';
-import { User as UserIcon, Mail, Search, MessageCircle } from 'lucide-react';
+import {
+  User as UserIcon,
+  Mail,
+  Search,
+  MessageCircle,
+  Home as HomeIcon,
+  LogOut,
+  Users,
+} from 'lucide-react';
 import { useUserList } from '../hooks/useUserList';
+import Button from '../components/ui/Button';
+import { Card, CardHeader, CardContent } from '../components/ui/Card';
 
 interface User {
   _id: string;
@@ -20,7 +30,7 @@ interface UserListProps {
 
 const UserList: React.FC<UserListProps> = React.memo(
   ({ onUserSelect, selectedUserId, excludeCurrentUser = false }) => {
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     const { users, loading, error } = useUserList();
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -44,70 +54,216 @@ const UserList: React.FC<UserListProps> = React.memo(
 
     if (loading) {
       return (
-        <div className="bg-gray-800 rounded-lg p-4 text-center text-gray-400">
-          Kullanıcılar yükleniyor...
+        <div className="min-h-screen bg-gray-900">
+          {/* Navigation */}
+          <nav className="bg-gray-800 shadow-lg">
+            <div className="max-w-6xl mx-auto px-4">
+              <div className="flex justify-between items-center py-4">
+                <div className="flex items-center space-x-4">
+                  <Link to="/">
+                    <HomeIcon className="w-7 h-7 text-purple-400 hover:text-purple-300 transition-colors cursor-pointer" />
+                  </Link>
+                  <span className="text-2xl font-bold text-white">
+                    NodeLabCase
+                  </span>
+                  <span className="text-gray-400 hidden sm:block">
+                    Hoş geldin,{' '}
+                    <span className="font-semibold text-white">
+                      {user?.username}
+                    </span>
+                    !
+                  </span>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <div className="flex space-x-2">
+                    <Link
+                      to="/profile"
+                      className="text-gray-300 hover:text-white px-3 py-2 rounded transition-colors"
+                    >
+                      Profil
+                    </Link>
+                    <Link
+                      to="/users"
+                      className="text-gray-300 hover:text-white px-3 py-2 rounded transition-colors"
+                    >
+                      Kullanıcı Listesi
+                    </Link>
+                  </div>
+                  <Button variant="danger" size="sm" onClick={logout}>
+                    <LogOut className="w-4 h-4 mr-1" /> Çıkış
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </nav>
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-500"></div>
+          </div>
         </div>
       );
     }
 
     if (error) {
       return (
-        <div className="bg-gray-800 rounded-lg p-4 text-center text-red-400">
-          {error}
+        <div className="min-h-screen bg-gray-900">
+          {/* Navigation */}
+          <nav className="bg-gray-800 shadow-lg">
+            <div className="max-w-6xl mx-auto px-4">
+              <div className="flex justify-between items-center py-4">
+                <div className="flex items-center space-x-4">
+                  <Link to="/">
+                    <HomeIcon className="w-7 h-7 text-purple-400 hover:text-purple-300 transition-colors cursor-pointer" />
+                  </Link>
+                  <span className="text-2xl font-bold text-white">
+                    NodeLabCase
+                  </span>
+                  <span className="text-gray-400 hidden sm:block">
+                    Hoş geldin,{' '}
+                    <span className="font-semibold text-white">
+                      {user?.username}
+                    </span>
+                    !
+                  </span>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <div className="flex space-x-2">
+                    <Link
+                      to="/profile"
+                      className="text-gray-300 hover:text-white px-3 py-2 rounded transition-colors"
+                    >
+                      Profil
+                    </Link>
+                    <Link
+                      to="/users"
+                      className="text-gray-300 hover:text-white px-3 py-2 rounded transition-colors"
+                    >
+                      Kullanıcı Listesi
+                    </Link>
+                  </div>
+                  <Button variant="danger" size="sm" onClick={logout}>
+                    <LogOut className="w-4 h-4 mr-1" /> Çıkış
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </nav>
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="text-red-400 text-center">
+              <p className="text-xl mb-4">Hata</p>
+              <p>{error}</p>
+            </div>
+          </div>
         </div>
       );
     }
 
     return (
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <Input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            icon={<Search />}
-            placeholder="Kullanıcı adı veya email ile ara..."
-            className="bg-gray-700 flex-1 mr-3"
-          />
-          <Link
-            to="/chat"
-            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md transition-colors flex items-center"
-          >
-            <MessageCircle className="w-4 h-4 mr-1" />
-            Sohbet
-          </Link>
-        </div>
-        <div className="space-y-2">
-          {filteredUsers.map((user) => (
-            <div
-              key={user._id}
-              className={`flex items-center bg-gray-800 rounded-lg p-3 cursor-pointer border border-gray-700 transition-all ${
-                selectedUserId === user._id
-                  ? 'ring-2 ring-purple-500'
-                  : 'hover:bg-gray-700'
-              }`}
-              onClick={() => handleUserSelect(user)}
-            >
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-lg mr-3">
-                <UserIcon className="w-5 h-5" />
+      <div className="min-h-screen bg-gray-900">
+        {/* Navigation */}
+        <nav className="bg-gray-800 shadow-lg">
+          <div className="max-w-6xl mx-auto px-4">
+            <div className="flex justify-between items-center py-4">
+              <div className="flex items-center space-x-4">
+                <Link to="/">
+                  <HomeIcon className="w-7 h-7 text-purple-400 hover:text-purple-300 transition-colors cursor-pointer" />
+                </Link>
+                <span className="text-2xl font-bold text-white">
+                  NodeLabCase
+                </span>
+                <span className="text-gray-400 hidden sm:block">
+                  Hoş geldin,{' '}
+                  <span className="font-semibold text-white">
+                    {user?.username}
+                  </span>
+                  !
+                </span>
               </div>
-              <div className="flex-1">
-                <h3 className="text-base font-semibold text-white">
-                  {user.username}
-                </h3>
-                <div className="flex items-center space-x-2 text-gray-400 text-xs">
-                  <Mail className="w-4 h-4" />
-                  <span>{user.email}</span>
+              <div className="flex items-center space-x-4">
+                <div className="flex space-x-2">
+                  <Link
+                    to="/profile"
+                    className="text-gray-300 hover:text-white px-3 py-2 rounded transition-colors"
+                  >
+                    Profil
+                  </Link>
+                  <Link
+                    to="/users"
+                    className="text-gray-300 hover:text-white px-3 py-2 rounded transition-colors"
+                  >
+                    Kullanıcı Listesi
+                  </Link>
                 </div>
-              </div>
-              <div className="text-right ml-4">
-                <span className="text-xs text-gray-500">ID</span>
-                <div className="font-mono text-xs text-gray-400">
-                  {user._id.substring(0, 8)}...
-                </div>
+                <Button variant="danger" size="sm" onClick={logout}>
+                  <LogOut className="w-4 h-4 mr-1" /> Çıkış
+                </Button>
               </div>
             </div>
-          ))}
+          </div>
+        </nav>
+
+        {/* Main Content */}
+        <div className="max-w-4xl mx-auto px-4 py-12">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center space-x-4">
+                <Users className="w-8 h-8 text-purple-400" />
+                <h2 className="text-3xl font-bold text-white">
+                  Kullanıcı Listesi
+                </h2>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between mb-6">
+                <Input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  icon={<Search />}
+                  placeholder="Kullanıcı adı veya email ile ara..."
+                  className="bg-gray-700 flex-1 mr-3"
+                />
+                <Link
+                  to="/chat"
+                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md transition-colors flex items-center"
+                >
+                  <MessageCircle className="w-4 h-4 mr-1" />
+                  Sohbet
+                </Link>
+              </div>
+              <div className="space-y-3">
+                {filteredUsers.map((user) => (
+                  <div
+                    key={user._id}
+                    className={`flex items-center bg-gray-800 rounded-lg p-4 cursor-pointer border border-gray-700 transition-all ${
+                      selectedUserId === user._id
+                        ? 'ring-2 ring-purple-500'
+                        : 'hover:bg-gray-700'
+                    }`}
+                    onClick={() => handleUserSelect(user)}
+                  >
+                    <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-lg mr-4">
+                      <UserIcon className="w-6 h-6" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-white">
+                        {user.username}
+                      </h3>
+                      <div className="flex items-center space-x-2 text-gray-400 text-sm">
+                        <Mail className="w-4 h-4" />
+                        <span>{user.email}</span>
+                      </div>
+                    </div>
+                    <div className="text-right ml-4">
+                      <span className="text-xs text-gray-500">ID</span>
+                      <div className="font-mono text-xs text-gray-400">
+                        {user._id.substring(0, 8)}...
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );

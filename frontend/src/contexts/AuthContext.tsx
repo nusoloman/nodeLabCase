@@ -18,7 +18,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const { socket, connected, joinConversation } = useSocket();
+  const { socket, connected, joinConversation, reconnect } = useSocket();
 
   // Kullanıcı login olduğunda konuşmaları yükle ve tüm odalara katıl
   useEffect(() => {
@@ -135,6 +135,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = (accessToken: string, refreshToken: string) => {
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
+    if (reconnect) reconnect(); // login sonrası socket'i yeniden başlat
     checkAuth();
   };
 

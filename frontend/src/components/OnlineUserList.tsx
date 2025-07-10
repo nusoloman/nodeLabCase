@@ -41,23 +41,19 @@ const OnlineUserList: React.FC = React.memo(() => {
   // Socket.IO ile online kullanıcılar güncellendiğinde listeyi güncelle
   useEffect(() => {
     if (!socket) return;
-    const handleOnlineUpdate = () => {
-      fetchOnlineUsers();
+    // Event handler referansları
+    const handleOnlineUsersUpdated = () => {
+      // 300ms delay ile fetch (backend'den güncelleme gelmesi için)
+      setTimeout(fetchOnlineUsers, 300);
     };
     const handleConnect = () => {
-      handleOnlineUpdate();
+      fetchOnlineUsers();
     };
-    socket.on('user_online', handleOnlineUpdate);
-    socket.on('disconnect', handleOnlineUpdate);
+    socket.on('online_users_updated', handleOnlineUsersUpdated);
     socket.on('connect', handleConnect);
-    socket.on('online_users_updated', () => {
-      setTimeout(handleOnlineUpdate, 300);
-    });
     return () => {
-      socket.off('user_online', handleOnlineUpdate);
-      socket.off('disconnect', handleOnlineUpdate);
+      socket.off('online_users_updated', handleOnlineUsersUpdated);
       socket.off('connect', handleConnect);
-      socket.off('online_users_updated', handleOnlineUpdate);
     };
   }, [socket, fetchOnlineUsers]);
 

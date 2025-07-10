@@ -10,17 +10,17 @@ import { BrowserRouter } from 'react-router-dom';
 function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <NotificationProvider>
-          <GlobalStateProvider>
-            <SocketProvider>
+      <SocketProvider>
+        <AuthProvider>
+          <NotificationProvider>
+            <GlobalStateProvider>
               <Toast />
               <GlobalSocketToastListener />
               <AppRouter />
-            </SocketProvider>
-          </GlobalStateProvider>
-        </NotificationProvider>
-      </AuthProvider>
+            </GlobalStateProvider>
+          </NotificationProvider>
+        </AuthProvider>
+      </SocketProvider>
     </BrowserRouter>
   );
 }

@@ -69,9 +69,27 @@ export async function getConversationList() {
   return apiRequest<{ conversations: any[] }>('/conversation/list');
 }
 
-// Message history
-export async function getMessageHistory(conversationId: string) {
-  return apiRequest<{ messages: any[] }>(`/message/history/${conversationId}`);
+// Message history with pagination
+export async function getMessageHistory(
+  conversationId: string,
+  page: number = 1,
+  limit: number = 10
+) {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+  });
+  return apiRequest<{
+    messages: any[];
+    pagination: {
+      currentPage: number;
+      totalPages: number;
+      totalMessages: number;
+      hasNextPage: boolean;
+      hasPrevPage: boolean;
+      limit: number;
+    };
+  }>(`/message/history/${conversationId}?${params}`);
 }
 
 // Send message (returns message and conversationId)

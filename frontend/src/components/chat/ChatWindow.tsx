@@ -4,7 +4,7 @@ import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
 import { useSocket } from '../../contexts/SocketContext';
 import { useMessageHistory } from '../../hooks/useMessageHistory';
-import { sendMessage, markMessageDelivered, markMessageSeen } from '../../api';
+import { sendMessage } from '../../api';
 
 interface Message {
   _id?: string;
@@ -35,11 +35,20 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   onNewConversation,
 }) => {
   const { socket } = useSocket();
-  const { messages, loading, error, addMessage, updateMessage } =
-    useMessageHistory(conversationId);
+  const {
+    messages,
+    loading,
+    loadingMore,
+    error,
+    pagination,
+    addMessage,
+    updateMessage,
+    loadMoreMessages,
+  } = useMessageHistory(conversationId, currentUserId);
   const [isOtherTyping, setIsOtherTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   // Odaya katıl (sadece conversationId varsa)
   useEffect(() => {
@@ -139,10 +148,77 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     });
   }, [socket, conversationId, messages, currentUserId]);
 
-  // Scroll to bottom
+  // Okunmamış mesaja scroll yap
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const handleScrollToUnread = (e: CustomEvent<{ messageIndex: number }>) => {
+      const container = messagesContainerRef.current;
+      if (!container || !messages.length) return;
+
+      const messageIndex = e.detail.messageIndex;
+      const messageElements = container.querySelectorAll(
+        '[data-message-index]'
+      );
+
+      if (messageElements[messageIndex]) {
+        messageElements[messageIndex].scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        });
+      }
+    };
+
+    const handleScrollToBottom = () => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    window.addEventListener(
+      'scrollToUnreadMessage',
+      handleScrollToUnread as EventListener
+    );
+    window.addEventListener('scrollToBottom', handleScrollToBottom);
+
+    return () => {
+      window.removeEventListener(
+        'scrollToUnreadMessage',
+        handleScrollToUnread as EventListener
+      );
+      window.removeEventListener('scrollToBottom', handleScrollToBottom);
+    };
   }, [messages]);
+
+  // Scroll detection for pagination
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      if (
+        container.scrollTop === 0 &&
+        pagination?.hasNextPage &&
+        !loadingMore
+      ) {
+        console.log('Triggering loadMoreMessages');
+        loadMoreMessages();
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [pagination?.hasNextPage, loadingMore, loadMoreMessages]);
+
+  // Mesajlar güncellendiğinde scroll pozisyonunu koru
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container || !loadingMore) return;
+
+    // Yeni mesajlar yüklendiğinde scroll pozisyonunu koru
+    const timer = setTimeout(() => {
+      // Basit yaklaşım: Load More seviyesinde kal
+      // Bu şekilde kullanıcı nerede olduğunu biliyor
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [messages, loadingMore]);
 
   // focusMessageId varsa ilgili mesaja scroll/focus yap
   useEffect(() => {
@@ -210,7 +286,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             onNewMessage(res.conversationId, text);
           }
         }
-      } catch (err) {
+      } catch {
         // Hata yönetimi eklenebilir
       }
     } else {
@@ -233,7 +309,28 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         avatarUrl={otherUser.avatarUrl}
         subtitle={isOtherTyping ? 'Yazıyor...' : 'Sohbet aktif'}
       />
-      <div className="flex-1 overflow-y-auto px-4 py-6 bg-gray-900">
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto px-4 py-6 bg-gray-900"
+      >
+        {/* Load More Button */}
+        {pagination?.hasNextPage && (
+          <div className="text-center mb-4">
+            {loadingMore ? (
+              <div className="text-gray-400 text-sm">
+                Eski mesajlar yükleniyor...
+              </div>
+            ) : (
+              <button
+                onClick={loadMoreMessages}
+                className="bg-gray-700 hover:bg-gray-600 text-gray-300 px-4 py-2 rounded-lg text-sm transition-colors"
+              >
+                Daha Fazla Mesaj Yükle
+              </button>
+            )}
+          </div>
+        )}
+
         {loading ? (
           <div className="text-center text-gray-400">
             Mesajlar yükleniyor...
@@ -252,6 +349,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             return (
               <div
                 key={msg._id || i}
+                data-message-index={i}
                 ref={(el) => {
                   if (msg._id) messageRefs.current[msg._id] = el;
                 }}

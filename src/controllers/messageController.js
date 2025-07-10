@@ -39,15 +39,42 @@ async function send(req, res) {
   }
 }
 
-// Belirli bir konuşmanın mesaj geçmişini getirir
+// Belirli bir konuşmanın mesaj geçmişini getirir (pagination ile)
 async function history(req, res) {
   try {
     const { conversationId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50; // Varsayılan 50 mesaj
+    const skip = (page - 1) * limit;
+
+    // Toplam mesaj sayısını al
+    const totalMessages = await Message.countDocuments({
+      conversation: conversationId,
+    });
+    const totalPages = Math.ceil(totalMessages / limit);
+
+    // Mesajları getir (en yeni mesajlar en altta olacak şekilde)
     const messages = await Message.find({ conversation: conversationId })
-      .sort({ createdAt: 1 })
+      .sort({ createdAt: -1 }) // En yeni mesajlar önce
+      .skip(skip)
+      .limit(limit)
       .populate('sender', 'username email')
       .populate('receiver', 'username email');
-    res.json({ messages });
+
+    // Mesajları tersine çevir (en eski mesajlar önce)
+    const reversedMessages = messages.reverse();
+
+    res.json({
+      messages: reversedMessages,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalMessages,
+        hasNextPage: page < totalPages, // Daha eski mesajlar var mı?
+        hasPrevPage: page > 1, // Daha yeni mesajlar var mı?
+        limit,
+      },
+    });
   } catch (err) {
     return res
       .status(500)

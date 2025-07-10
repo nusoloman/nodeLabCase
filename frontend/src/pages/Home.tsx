@@ -31,9 +31,20 @@ const Home: React.FC = () => {
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
-              <HomeIcon className="w-7 h-7 text-purple-400" />
+              <Link to="/">
+                <HomeIcon className="w-7 h-7 text-purple-400 hover:text-purple-300 transition-colors cursor-pointer" />
+              </Link>
               <span className="text-2xl font-bold text-white">NodeLabCase</span>
-              <div className="flex space-x-2 ml-6">
+              <span className="text-gray-400 hidden sm:block">
+                Hoş geldin,{' '}
+                <span className="font-semibold text-white">
+                  {user?.username}
+                </span>
+                !
+              </span>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="flex space-x-2">
                 <Link
                   to="/profile"
                   className="text-gray-300 hover:text-white px-3 py-2 rounded transition-colors"
@@ -42,26 +53,11 @@ const Home: React.FC = () => {
                 </Link>
                 <Link
                   to="/users"
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md transition-colors"
+                  className="text-gray-300 hover:text-white px-3 py-2 rounded transition-colors"
                 >
                   Kullanıcı Listesi
                 </Link>
-                <Link
-                  to="/chat"
-                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md transition-colors"
-                >
-                  Sohbet
-                </Link>
               </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-gray-400 hidden sm:block">
-                Hoş geldin,{' '}
-                <span className="font-semibold text-white">
-                  {user?.username}
-                </span>
-                !
-              </span>
               <Button variant="danger" size="sm" onClick={logout}>
                 <LogOut className="w-4 h-4 mr-1" /> Çıkış
               </Button>
@@ -78,7 +74,6 @@ const Home: React.FC = () => {
               <ShieldCheck className="w-8 h-8 text-purple-400" />
               <h2 className="text-3xl font-bold text-white">Dashboard</h2>
             </div>
-            <p className="text-purple-200 mt-2">JWT ile korunan ana sayfa</p>
           </CardHeader>
           <CardContent>
             <div className="grid md:grid-cols-2 gap-8">
@@ -93,9 +88,6 @@ const Home: React.FC = () => {
                 <div className="flex items-center text-gray-400 mb-2">
                   <Mail className="w-4 h-4 mr-1" />
                   <span>{user?.email}</span>
-                </div>
-                <div className="text-xs text-gray-500 font-mono">
-                  ID: {user?._id}
                 </div>
               </div>
 
