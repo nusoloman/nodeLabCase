@@ -25,7 +25,7 @@ const randomMessages = [
 ];
 
 // Her gece saat 02:00'de çalışacak şekilde cron ayarla
-cron.schedule('0 2 * * *', async () => {
+cron.schedule('0 23 * * *', async () => {
   try {
     // 1. Tüm kullanıcıları çek
     const users = await User.find({});
