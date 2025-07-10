@@ -10,6 +10,7 @@ const Settings = React.lazy(() => import('./pages/Settings'));
 const UserList = React.lazy(() => import('./pages/UserList'));
 const ActiveUserList = React.lazy(() => import('./pages/ActiveUserList'));
 const ChatPage = React.lazy(() => import('./pages/ChatPage'));
+const ShufflePage = React.lazy(() => import('./pages/ShufflePage'));
 
 const LoadingSpinner = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -109,6 +110,14 @@ const AppRouter = () => (
         element={
           <ProtectedRoute>
             <ChatPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/shuffle"
+        element={
+          <ProtectedRoute>
+            <ShufflePage />
           </ProtectedRoute>
         }
       />

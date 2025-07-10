@@ -5,6 +5,7 @@ import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import Input from '../components/ui/Input';
 import { useState } from 'react';
 import { API_URL } from '../config';
+import { useSocket } from '../contexts/SocketContext';
 
 interface User {
   _id: string;
@@ -19,27 +20,43 @@ const ActiveUserList: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const { socket } = useSocket();
+
+  // fetch fonksiyonunu dışarı al
+  const fetchOnlineUsers = async () => {
+    setLoading(true);
+    try {
+      const accessToken = localStorage.getItem('accessToken');
+      const res = await fetch(`${API_URL}/online-users`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      const data = await res.json();
+      setUsers(data.users || data);
+    } catch {
+      setError('Online kullanıcılar alınamadı.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   React.useEffect(() => {
-    const fetchOnlineUsers = async () => {
-      setLoading(true);
-      try {
-        const accessToken = localStorage.getItem('accessToken');
-        const res = await fetch(`${API_URL}/online-users`, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        const data = await res.json();
-        setUsers(data.users || data);
-      } catch {
-        setError('Online kullanıcılar alınamadı.');
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchOnlineUsers();
   }, []);
+
+  // Websocket ile online_users_updated event'ini dinle
+  React.useEffect(() => {
+    if (!socket) return;
+    const handleUpdate = () => {
+      fetchOnlineUsers();
+    };
+    socket.on('online_users_updated', handleUpdate);
+    return () => {
+      socket.off('online_users_updated', handleUpdate);
+    };
+  }, [socket]);
 
   let filteredUsers = users;
   filteredUsers = filteredUsers.filter(
