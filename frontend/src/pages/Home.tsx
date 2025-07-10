@@ -74,11 +74,10 @@ const Home: React.FC = () => {
                     Başlat
                   </Link>
                   <Link
-                    to="#"
-                    className="block w-full bg-gray-700 hover:bg-gray-600 text-gray-300 text-center py-3 px-4 rounded-lg font-semibold transition-colors"
+                    to="/settings"
+                    className="block w-full bg-gradient-to-r from-gray-600 to-gray-500 hover:from-gray-700 hover:to-gray-600 text-white text-center py-3 px-4 rounded-lg font-semibold transition-colors"
                   >
-                    <Settings className="w-4 h-4 inline mr-1" /> Ayarlar (devam
-                    edecek)
+                    <Settings className="w-4 h-4 inline mr-1" /> Ayarlar
                   </Link>
                 </div>
               </div>

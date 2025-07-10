@@ -6,6 +6,7 @@ import { useAuth } from './hooks/useAuth';
 const Auth = React.lazy(() => import('./pages/Auth'));
 const Home = React.lazy(() => import('./pages/Home'));
 const Profile = React.lazy(() => import('./pages/Profile'));
+const Settings = React.lazy(() => import('./pages/Settings'));
 const UserList = React.lazy(() => import('./pages/UserList'));
 const ActiveUserList = React.lazy(() => import('./pages/ActiveUserList'));
 const ChatPage = React.lazy(() => import('./pages/ChatPage'));
@@ -76,6 +77,14 @@ const AppRouter = () => (
         element={
           <ProtectedRoute>
             <Profile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <Settings />
           </ProtectedRoute>
         }
       />

@@ -19,6 +19,39 @@
  *       401:
  *         description: Unauthorized
  */
+
+/**
+ * @swagger
+ * /api/user/change-password:
+ *   post:
+ *     summary: Change user password
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 description: Current password
+ *               newPassword:
+ *                 type: string
+ *                 description: New password (min 6 characters)
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *       400:
+ *         description: Invalid input or current password incorrect
+ *       401:
+ *         description: Unauthorized
+ */
 const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
@@ -28,5 +61,8 @@ router.get('/list', authMiddleware, userController.list);
 
 // Profil güncelleme endpointi
 router.patch('/profile', authMiddleware, userController.updateProfile);
+
+// Şifre değiştirme endpointi
+router.post('/change-password', authMiddleware, userController.changePassword);
 
 module.exports = router;
