@@ -64,9 +64,17 @@ async function startConsumer() {
       autoMsg.isSent = true;
       await autoMsg.save();
       if (ioInstance) {
+        // sender bilgisi ile kullanıcı adı ve email'i ekle
+        const senderUser = await require('../models/User')
+          .findById(message.sender)
+          .select('username email');
         ioInstance.to(conversation._id.toString()).emit('message_received', {
           _id: message._id,
-          sender: message.sender,
+          sender: {
+            _id: message.sender,
+            username: senderUser?.username,
+            email: senderUser?.email,
+          },
           receiver: message.receiver,
           content: message.content,
           conversation: message.conversation,
