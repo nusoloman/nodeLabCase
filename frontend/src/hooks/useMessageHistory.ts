@@ -39,20 +39,32 @@ export function useMessageHistory(
 
     setLoading(true);
     setError(null);
-    currentPageRef.current = initialPage || 1;
 
     // Eğer arama ile gelindiyse (forceLoadAllToPage true), 1. sayfadan initialPage'e kadar tüm mesajları sırayla yükle
     if (forceLoadAllToPage && initialPage && initialPage > 1) {
+      currentPageRef.current = initialPage;
       (async () => {
         let allMessages: any[] = [];
         for (let page = 1; page <= initialPage; page++) {
           // eslint-disable-next-line no-await-in-loop
           const data = await getMessageHistory(conversationId, page, 50);
-          allMessages = [...allMessages, ...data.messages];
+          // Duplicate mesajları önle
+          const newMessages = data.messages.filter(
+            (msg: any) =>
+              !allMessages.some(
+                (existingMsg: any) => existingMsg._id === msg._id
+              )
+          );
+          allMessages = [...allMessages, ...newMessages];
           if (page === initialPage) {
             setPagination(data.pagination); // son yüklenen sayfanın pagination'ı
           }
         }
+        // Mesajları createdAt'e göre sırala
+        allMessages.sort(
+          (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
         setMessages(allMessages);
         setTimeout(() => {
           const unreadMessageIndex = allMessages.findIndex((msg: any) => {
@@ -74,11 +86,21 @@ export function useMessageHistory(
       })();
       return;
     } else {
-      // Standart: en yeni sayfadan başla
-      getMessageHistory(conversationId, currentPageRef.current, 50)
-        .then((data) => {
+      // Standart: Önce toplam sayfa sayısını al, sonra en son sayfadan başla
+      (async () => {
+        try {
+          // Önce sayfa 1'i yükle (sadece pagination bilgisi için)
+          const firstPageData = await getMessageHistory(conversationId, 1, 50);
+          const totalPages = firstPageData.pagination.totalPages;
+
+          // En son sayfadan başla (en yeni mesajlar)
+          const startPage = initialPage || totalPages;
+          currentPageRef.current = startPage;
+
+          const data = await getMessageHistory(conversationId, startPage, 50);
           setMessages(data.messages);
           setPagination(data.pagination);
+
           setTimeout(() => {
             const unreadMessageIndex = data.messages.findIndex((msg: any) => {
               const senderId =
@@ -95,12 +117,13 @@ export function useMessageHistory(
               window.dispatchEvent(event);
             }
           }, 100);
-        })
-        .catch((err: { message: string }) => {
+        } catch (err: any) {
           setError(err.message);
           notify(err.message, 'error');
-        })
-        .finally(() => setLoading(false));
+        } finally {
+          setLoading(false);
+        }
+      })();
     }
   }, [conversationId, notify, initialPage, currentUserId, forceLoadAllToPage]);
 
@@ -108,27 +131,36 @@ export function useMessageHistory(
 
   // Daha fazla mesaj yükle (pagination)
   const loadMoreMessages = useCallback(async () => {
-    if (!conversationId || !pagination?.hasNextPage || loadingMore) return;
+    if (!conversationId || !pagination?.hasPrevPage || loadingMore) return;
 
     setLoadingMore(true);
-    const nextPage = currentPageRef.current + 1;
+    const prevPage = currentPageRef.current - 1;
 
     try {
-      const data = await getMessageHistory(conversationId, nextPage, 50);
+      const data = await getMessageHistory(conversationId, prevPage, 50);
 
       setMessages((prev) => {
-        const newMessages = [...data.messages, ...prev]; // Eski mesajları üste ekle
-        return newMessages;
+        // Duplicate mesajları önle
+        const newMessages = data.messages.filter(
+          (msg: any) =>
+            !prev.some((existingMsg: any) => existingMsg._id === msg._id)
+        );
+        // Eski mesajları üste ekle ve createdAt'e göre sırala
+        const combinedMessages = [...newMessages, ...prev];
+        return combinedMessages.sort(
+          (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
       });
       setPagination(data.pagination);
-      currentPageRef.current = nextPage;
+      currentPageRef.current = prevPage;
     } catch (err: any) {
       setError(err.message);
       notify(err.message, 'error');
     } finally {
       setLoadingMore(false);
     }
-  }, [conversationId, pagination?.hasNextPage, loadingMore, notify]);
+  }, [conversationId, pagination?.hasPrevPage, loadingMore, notify]);
 
   // Belirli bir sayfadan mesajları yükle
   const loadMessagesAtPage = useCallback(
@@ -137,7 +169,19 @@ export function useMessageHistory(
       setLoading(true);
       try {
         const data = await getMessageHistory(conversationId, page, 50);
-        setMessages(data.messages);
+        setMessages((prev) => {
+          // Duplicate mesajları önle
+          const newMessages = data.messages.filter(
+            (msg: any) =>
+              !prev.some((existingMsg: any) => existingMsg._id === msg._id)
+          );
+          // Yeni mesajları ekle ve createdAt'e göre sırala
+          const combinedMessages = [...prev, ...newMessages];
+          return combinedMessages.sort(
+            (a, b) =>
+              new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          );
+        });
         setPagination(data.pagination);
         currentPageRef.current = page;
       } catch (err: any) {
@@ -155,7 +199,12 @@ export function useMessageHistory(
     setMessages((prev) => {
       // Prevent duplicate messages by _id
       if (msg._id && prev.some((m) => m._id === msg._id)) return prev;
-      return [...prev, msg];
+      // Yeni mesajı ekle ve createdAt'e göre sırala
+      const newMessages = [...prev, msg];
+      return newMessages.sort(
+        (a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
     });
   }, []);
 

@@ -438,6 +438,15 @@ const ChatPage: React.FC = () => {
 
                 if (aUnread && !bUnread) return -1;
                 if (!aUnread && bUnread) return 1;
+
+                // Okunmamış mesaj durumu aynıysa, son mesaj tarihine göre sırala (en yeni en altta)
+                if (a.lastMessage && b.lastMessage) {
+                  return (
+                    new Date(a.lastMessage.createdAt).getTime() -
+                    new Date(b.lastMessage.createdAt).getTime()
+                  );
+                }
+
                 return 0;
               })
               .map((conv) => {

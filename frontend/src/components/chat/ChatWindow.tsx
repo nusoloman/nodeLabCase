@@ -203,7 +203,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     const handleScroll = () => {
       if (
         container.scrollTop === 0 &&
-        pagination?.hasNextPage &&
+        pagination?.hasPrevPage &&
         !loadingMore
       ) {
         loadMoreMessages();
@@ -212,7 +212,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
     container.addEventListener('scroll', handleScroll);
     return () => container.removeEventListener('scroll', handleScroll);
-  }, [pagination?.hasNextPage, loadingMore, loadMoreMessages]);
+  }, [pagination?.hasPrevPage, loadingMore, loadMoreMessages]);
 
   // Mesajlar güncellendiğinde scroll pozisyonunu koru
   useEffect(() => {
@@ -310,7 +310,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       if (!focusMessageId || !focusMessagePage) return;
       let found = messages.some((msg) => msg._id === focusMessageId);
       let tries = 0;
-      while (!found && pagination?.hasNextPage && !cancelled) {
+      while (!found && pagination?.hasPrevPage && !cancelled) {
         await loadMoreMessages();
         found = messages.some((msg) => msg._id === focusMessageId);
         tries++;
@@ -330,7 +330,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       cancelled = true;
     };
     // eslint-disable-next-line
-  }, [focusMessageId, focusMessagePage, messages, pagination?.hasNextPage]);
+  }, [focusMessageId, focusMessagePage, messages, pagination?.hasPrevPage]);
 
   // Otomatik delivered işaretlemeyi kaldırdık - sadece toast gösterildiğinde olacak
 
@@ -383,7 +383,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         className="flex-1 overflow-y-auto px-4 py-6 bg-gray-900"
       >
         {/* Load More Button */}
-        {pagination?.hasNextPage && (
+        {pagination?.hasPrevPage && (
           <div className="text-center mb-4">
             {loadingMore ? (
               <div className="text-gray-400 text-sm">
